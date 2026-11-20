@@ -7,12 +7,13 @@
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons (Unified with SAP Remark System) -->
+  <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- pdf-lib -->
+  <!-- pdf-lib & fontkit (for CJK Chinese/Japanese font embedding) -->
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
   <!-- SheetJS -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
@@ -72,12 +73,12 @@
       border: 1.5px solid #a21caf !important;
       background: rgba(192, 38, 211, 0.12) !important;
     }
-    /* Excel Grid Preview Table Styles (Unified Light Theme) */
+    /* Excel Grid Preview Table Styles */
     .excel-grid-table {
       border-collapse: collapse;
       background: #ffffff;
       color: #1e293b;
-      font-family: 'Inter', Calibri, Arial, sans-serif;
+      font-family: 'Inter', "Microsoft JhengHei", Calibri, Arial, sans-serif;
       font-size: 12px;
     }
     .excel-grid-table th {
@@ -132,7 +133,6 @@
       outline: 1.5px solid #2563eb;
       outline-offset: -1px;
     }
-    /* Unified Light Scrollbars */
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: #f1f5f9; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -141,7 +141,7 @@
 </head>
 <body class="text-slate-800 h-screen flex flex-col overflow-hidden select-none">
 
-  <!-- Top Navigation Bar (Unified Dark Slate Header) -->
+  <!-- Top Navigation Bar -->
   <header class="bg-slate-900 text-white shadow-md px-6 py-3.5 flex flex-wrap justify-between items-center gap-4 z-30">
     <div class="flex items-center space-x-3">
       <div class="bg-blue-600 p-2 rounded-lg shadow-inner">
@@ -152,7 +152,7 @@
           PDF Editor
           <span class="bg-blue-500/20 text-blue-300 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-blue-400/30">V1</span>
         </h1>
-        <p class="text-xs text-slate-400">Local-First PDF Sanitizer • Smart Highlight • Magnetic Alignment • Page Cutter • 1:1 Excel Grid</p>
+        <p class="text-xs text-slate-400">Local-First PDF Sanitizer • CJK & English Support • Smart Highlight • Page Cutter • 1:1 Excel Grid</p>
       </div>
     </div>
 
@@ -195,7 +195,7 @@
     </div>
   </header>
 
-  <!-- Secondary Editing Toolbar (Unified White Card Strip) -->
+  <!-- Secondary Editing Toolbar -->
   <div id="subBar" class="bg-white border-b border-slate-200 px-6 py-2 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm hidden z-20">
     <!-- Left: PDF Tools -->
     <div id="toolBar" class="flex flex-wrap items-center gap-1.5">
@@ -242,7 +242,7 @@
     <!-- Right: Zoom, Undo & Hint -->
     <div class="flex items-center gap-2.5 ml-auto">
       <span id="modeHint" class="text-slate-500 hidden xl:inline font-medium">
-        <i class="fa-solid fa-shield-halved text-emerald-600 mr-1"></i>100% Local Processing • Zero Server Upload
+        <i class="fa-solid fa-shield-halved text-emerald-600 mr-1"></i>100% Local Processing • CJK & English Ready
       </span>
       <div id="zoomControls" class="flex items-center bg-slate-100 rounded-lg border border-slate-300 px-1.5 py-0.5 text-xs font-semibold text-slate-700">
         <button id="zoomOut" class="px-2 py-0.5 hover:text-blue-600 font-bold" title="Zoom Out">-</button>
@@ -296,7 +296,7 @@
         </div>
         <h2 class="text-lg font-bold text-slate-800 mb-1.5">Drag & Drop Source PDF File Here</h2>
         <p class="text-xs text-slate-500 leading-relaxed mb-5">
-          Supports Smart Line-Snap Highlighting, Direct Text Editing, Free Text Insertion, Magnetic Drag & Alignment, Page Extraction (Cut Pages), and 1:1 Layout Excel Grid Preview & Copy.
+          Full support for English, Traditional/Simplified Chinese & Japanese PDFs. Includes Smart Line-Snap Highlighting, Direct Text Editing, Magnetic Alignment, Page Cutter, and 1:1 Excel Grid Preview.
         </p>
         <label class="cursor-pointer inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow transition">
           <i class="fa-solid fa-folder-open"></i>
@@ -334,7 +334,6 @@
 
       <!-- VIEW 2: Excel Grid Preview & Copy Mode -->
       <div id="excelPreviewWrapper" class="hidden flex flex-col w-full h-full max-w-[1600px]">
-        <!-- Excel Preview Action Bar (Unified Card Style) -->
         <div class="bg-white border border-slate-200 rounded-xl px-5 py-3 mb-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
           <div class="flex items-center gap-2.5">
             <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
@@ -361,7 +360,6 @@
           </div>
         </div>
 
-        <!-- Scrollable Spreadsheet Grid Container -->
         <div id="excelGridContainer" class="flex-1 overflow-auto bg-white rounded-xl border border-slate-300 shadow-inner">
           <!-- Rendered Table goes here -->
         </div>
@@ -370,13 +368,13 @@
     </main>
   </div>
 
-  <!-- Unified Toast Notification (Matches Container Manifest & SAP Remark System) -->
+  <!-- Unified Toast Notification -->
   <div id="toastMsg" class="fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-emerald-500/50 flex items-center space-x-2.5 z-50 transform translate-y-24 opacity-0 transition-all duration-200 pointer-events-none">
     <i class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
-    <span id="toastText" class="text-xs font-bold">Copied to clipboard! Ready to paste (Ctrl+V) in Excel.</span>
+    <span id="toastText" class="text-xs font-bold">Copied to clipboard!</span>
   </div>
 
-  <!-- Modal for Editing / Adding Text (Unified Light Card Modal) -->
+  <!-- Modal for Editing / Adding Text -->
   <div id="editModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs hidden items-center justify-center z-50">
     <div class="bg-white border border-slate-200 rounded-xl p-6 w-full max-w-md shadow-2xl space-y-4">
       <div class="flex justify-between items-center border-b border-slate-200 pb-3">
@@ -393,8 +391,8 @@
           <div id="originalTextPreview" class="bg-slate-100 border border-slate-200 p-2.5 rounded-lg text-slate-600 mono-font break-all"></div>
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Text Content:</label>
-          <input type="text" id="newTextInput" placeholder="Enter text..." class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 mono-font focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <label class="block font-semibold text-slate-700 mb-1">Text Content (Supports English & Chinese):</label>
+          <input type="text" id="newTextInput" placeholder="Enter text..." class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div class="grid grid-cols-3 gap-2.5">
           <div>
@@ -435,15 +433,18 @@
   </div>
 
   <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    // Configure PDF.js Worker + Full CMap & Standard Font Support for Chinese/Japanese PDFs
+    const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.js`;
 
     // Global State
     let rawPdfBytes = null;
     let pdfDoc = null;
+    let cachedCjkFontBytes = null;
     let currentPage = 1;
     let totalPages = 0;
     let scale = 1.3;
-    let activeWorkspaceView = 'pdf'; // 'pdf' | 'excelPreview'
+    let activeWorkspaceView = 'pdf';
     let currentMode = 'view';
     let currentHighlightColor = 'rgba(253, 224, 71, 0.45)';
     let currentHighlightRgb = [1, 0.88, 0.28];
@@ -492,15 +493,16 @@
       if (toastTimer) clearTimeout(toastTimer);
       toastTimer = setTimeout(() => {
         toast.classList.add('translate-y-24', 'opacity-0');
-      }, 2600);
+      }, 2800);
     }
 
     // Drag and Drop file support
     document.body.addEventListener('dragover', e => e.preventDefault());
     document.body.addEventListener('drop', e => {
       e.preventDefault();
-      if (e.dataTransfer.files && e.dataTransfer.files[0]?.type === 'application/pdf') {
-        loadPdfFile(e.dataTransfer.files[0]);
+      const file = e.dataTransfer?.files?.[0];
+      if (file && (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'))) {
+        loadPdfFile(file);
       }
     });
 
@@ -519,36 +521,53 @@
 
     async function loadPdfFile(file) {
       originalFileName = file.name.replace(/\.pdf$/i, '');
-      
-      const arrayBuffer = await file.arrayBuffer();
-      rawPdfBytes = new Uint8Array(arrayBuffer);
-      
-      pdfDoc = await pdfjsLib.getDocument({ data: rawPdfBytes.slice() }).promise;
-      totalPages = pdfDoc.numPages;
-      currentPage = 1;
-      pageAnnotations = {};
-      pageTextItems = {};
-      previewMatrices = {};
-      selectedPages = new Set(Array.from({ length: totalPages }, (_, i) => i + 1));
-
       const statusBadge = document.getElementById('statusBadge');
-      statusBadge.textContent = `Loaded: ${file.name} (${totalPages} Pages)`;
-      statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 max-w-[260px] truncate';
+      statusBadge.textContent = 'Loading PDF & CJK Maps...';
 
-      document.getElementById('viewSwitchBar').classList.remove('opacity-50', 'pointer-events-none');
-      document.getElementById('exportBar').classList.remove('opacity-50', 'pointer-events-none');
-      document.getElementById('subBar').classList.remove('hidden');
-      document.getElementById('dropZone').classList.add('hidden');
-      document.getElementById('totalPagesNum').textContent = totalPages;
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        rawPdfBytes = new Uint8Array(arrayBuffer);
 
-      await renderThumbnails();
-      updateSelectedCount();
-      switchWorkspaceView('pdf');
-      await renderPage(currentPage);
+        // Enable cMapUrl and standardFontDataUrl so Chinese (GBK/Big5/UTF-16) & Japanese CID fonts render & extract properly
+        const loadingTask = pdfjsLib.getDocument({
+          data: rawPdfBytes.slice(),
+          cMapUrl: `${PDFJS_CDN}/cmaps/`,
+          cMapPacked: true,
+          standardFontDataUrl: `${PDFJS_CDN}/standard_fonts/`,
+          useSystemFonts: true
+        });
+
+        pdfDoc = await loadingTask.promise;
+        totalPages = pdfDoc.numPages;
+        currentPage = 1;
+        pageAnnotations = {};
+        pageTextItems = {};
+        previewMatrices = {};
+        selectedPages = new Set(Array.from({ length: totalPages }, (_, i) => i + 1));
+
+        statusBadge.textContent = `Loaded: ${file.name} (${totalPages} Pages)`;
+        statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 max-w-[260px] truncate';
+
+        document.getElementById('viewSwitchBar').classList.remove('opacity-50', 'pointer-events-none');
+        document.getElementById('exportBar').classList.remove('opacity-50', 'pointer-events-none');
+        document.getElementById('subBar').classList.remove('hidden');
+        document.getElementById('dropZone').classList.add('hidden');
+        document.getElementById('totalPagesNum').textContent = totalPages;
+
+        await renderThumbnails();
+        updateSelectedCount();
+        switchWorkspaceView('pdf');
+        await renderPage(currentPage);
+      } catch (err) {
+        console.error('PDF Load Error:', err);
+        statusBadge.textContent = 'Failed to Load PDF';
+        statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+        alert(`Error loading PDF: ${err.message}`);
+      }
     }
 
     // =========================================================================
-    // WORKSPACE VIEW SWITCHER (PDF Canvas Editor <-> Excel Grid Preview)
+    // WORKSPACE VIEW SWITCHER
     // =========================================================================
     document.getElementById('switchPdfViewBtn').addEventListener('click', () => switchWorkspaceView('pdf'));
     document.getElementById('switchExcelPreviewBtn').addEventListener('click', () => switchWorkspaceView('excelPreview'));
@@ -664,28 +683,28 @@
 
       return textContent.items.map((item, idx) => {
         const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-        const fontHeight = Math.hypot(tx[2], tx[3]);
-        const itemWidth = item.width * targetScale;
+        const fontHeight = Math.max(Math.hypot(tx[2], tx[3]), 6 * targetScale);
+        const rawWidth = item.width ? item.width * targetScale : measurePdfTextWidth(item.str, fontHeight);
         const pdfX = item.transform[4];
         const pdfY = item.transform[5];
-        const pdfFontSize = Math.hypot(item.transform[2], item.transform[3]);
+        const pdfFontSize = Math.max(Math.hypot(item.transform[2], item.transform[3]), 6);
 
         return {
           id: idx,
           str: item.str,
           x: tx[4],
           y: tx[5] - fontHeight * 0.88,
-          width: Math.max(itemWidth, 8),
-          height: fontHeight * 1.05,
+          width: Math.max(rawWidth, 8),
+          height: fontHeight * 1.08,
           fontSize: Math.round(pdfFontSize),
           pdfX,
           pdfY,
-          pdfW: item.width,
+          pdfW: item.width || (rawWidth / targetScale),
           pdfH: pdfFontSize,
           pageWidth: unscaledViewport.width,
           pageHeight: unscaledViewport.height
         };
-      }).filter(t => t.str.trim().length > 0);
+      }).filter(t => t.str && t.str.trim().length > 0);
     }
 
     async function renderPage(pageNum) {
@@ -717,7 +736,7 @@
 
     function measurePdfTextWidth(text, fontSize) {
       drawCtx.save();
-      drawCtx.font = `${fontSize}px Helvetica, Arial, sans-serif`;
+      drawCtx.font = `${fontSize}px "Microsoft JhengHei", "PingFang HK", "Noto Sans CJK SC", Helvetica, Arial, sans-serif`;
       const w = drawCtx.measureText(text).width;
       drawCtx.restore();
       return w;
@@ -1055,14 +1074,14 @@
             const drawX = ann.customPdfX !== undefined ? ann.customPdfX : getAlignedPdfX(ann);
             const [r, g, b] = ann.rgb;
             drawCtx.fillStyle = `rgb(${r * 255}, ${g * 255}, ${b * 255})`;
-            drawCtx.font = `${ann.fontSize * scale}px Helvetica, Arial, sans-serif`;
+            drawCtx.font = `${ann.fontSize * scale}px "Microsoft JhengHei", "PingFang HK", "Noto Sans CJK SC", Helvetica, Arial, sans-serif`;
             drawCtx.fillText(ann.newText, drawX * scale, (ann.pageHeight - ann.pdfY) * scale);
           }
         } else if (ann.type === 'addText') {
           const drawX = ann.customPdfX !== undefined ? ann.customPdfX : getAlignedPdfX(ann);
           const [r, g, b] = ann.rgb;
           drawCtx.fillStyle = `rgb(${r * 255}, ${g * 255}, ${b * 255})`;
-          drawCtx.font = `${ann.fontSize * scale}px Helvetica, Arial, sans-serif`;
+          drawCtx.font = `${ann.fontSize * scale}px "Microsoft JhengHei", "PingFang HK", "Noto Sans CJK SC", Helvetica, Arial, sans-serif`;
           drawCtx.fillText(ann.newText, drawX * scale, (ann.pageHeight - ann.pdfY) * scale);
         }
       });
@@ -1488,7 +1507,7 @@
     });
 
     // =========================================================================
-    // 2D SPATIAL MATRIX BUILDER (Shared by Excel Preview & Excel File Export)
+    // 2D SPATIAL MATRIX BUILDER
     // =========================================================================
     function getEffectivePageItems(pageNum) {
       const baseItems = pageTextItems[pageNum] || [];
@@ -1655,7 +1674,6 @@
       const table = document.createElement('table');
       table.className = 'excel-grid-table w-full';
 
-      // Header Row (A, B, C...)
       const thead = document.createElement('thead');
       const headRow = document.createElement('tr');
       const cornerTh = document.createElement('th');
@@ -1674,7 +1692,6 @@
       thead.appendChild(headRow);
       table.appendChild(thead);
 
-      // Data Rows
       const tbody = document.createElement('tbody');
       matrix.forEach((row, rIdx) => {
         const tr = document.createElement('tr');
@@ -1847,20 +1864,54 @@
     });
 
     // =========================================================================
-    // FILE EXPORTS (PDF & XLSX)
+    // FILE EXPORTS (PDF with CJK Font Support & XLSX)
     // =========================================================================
+    function hasNonAsciiText(sortedPages) {
+      for (const p of sortedPages) {
+        const anns = pageAnnotations[p] || [];
+        for (const a of anns) {
+          if ((a.type === 'textEdit' || a.type === 'addText') && /[^\x00-\x7F]/.test(a.newText || '')) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    async function getEmbeddedExportFont(outDoc, needsCjk) {
+      if (!needsCjk) {
+        return await outDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+      }
+      try {
+        if (!cachedCjkFontBytes) {
+          showToast('Loading Chinese/CJK font for PDF export...');
+          const fontUrl = 'https://cdn.jsdelivr.net/gh/googlefonts/noto-cjk@main/Sans/OTF/TraditionalChinese/NotoSansCJKtc-Regular.otf';
+          const resp = await fetch(fontUrl);
+          if (!resp.ok) throw new Error('CJK font fetch failed');
+          cachedCjkFontBytes = await resp.arrayBuffer();
+        }
+        outDoc.registerFontkit(fontkit);
+        return await outDoc.embedFont(cachedCjkFontBytes, { subset: true });
+      } catch (e) {
+        console.warn('Fallback to Helvetica due to CJK font load error:', e);
+        return await outDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+      }
+    }
+
     document.getElementById('exportPdfBtn').addEventListener('click', async () => {
       if (selectedPages.size === 0) {
         alert('Please select at least 1 page to export.');
         return;
       }
 
-      const { PDFDocument, rgb, StandardFonts } = PDFLib;
-      const srcDoc = await PDFDocument.load(rawPdfBytes);
+      const { PDFDocument, rgb } = PDFLib;
+      const srcDoc = await PDFDocument.load(rawPdfBytes, { ignoreEncryption: true });
       const outDoc = await PDFDocument.create();
-      const font = await outDoc.embedFont(StandardFonts.Helvetica);
 
       const sortedPages = Array.from(selectedPages).sort((a, b) => a - b);
+      const needsCjk = hasNonAsciiText(sortedPages);
+      const font = await getEmbeddedExportFont(outDoc, needsCjk);
+
       const copiedPages = await outDoc.copyPages(srcDoc, sortedPages.map(p => p - 1));
 
       sortedPages.forEach((origPageNum, idx) => {
@@ -1906,7 +1957,7 @@
                   color: rgb(r, g, b)
                 });
               } catch (err) {
-                console.warn('Non-ASCII character fallback:', err);
+                console.warn('Text draw skipped:', err);
               }
             }
           } else if (ann.type === 'addText') {
@@ -1921,7 +1972,7 @@
                 color: rgb(r, g, b)
               });
             } catch (err) {
-              console.warn('Non-ASCII character fallback:', err);
+              console.warn('Text draw skipped:', err);
             }
           }
         });
@@ -1941,8 +1992,10 @@
       const colWidths = new Array(maxCols).fill(8);
       aoa.forEach(row => {
         row.forEach((cell, idx) => {
-          const len = String(cell || '').length;
-          colWidths[idx] = Math.min(Math.max(colWidths[idx], len + 3), 48);
+          const str = String(cell || '');
+          // Count CJK wide characters as 2 width units for proper Excel column sizing
+          const len = Array.from(str).reduce((acc, ch) => acc + (/[^\x00-\x7F]/.test(ch) ? 2 : 1), 0);
+          colWidths[idx] = Math.min(Math.max(colWidths[idx], len + 3), 50);
         });
       });
       ws['!cols'] = colWidths.map(wch => ({ wch }));
