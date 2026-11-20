@@ -9,8 +9,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- PDF.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- PDF.js (jsDelivr has full Access-Control-Allow-Origin: * for cmaps) -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <!-- Tesseract.js (Local Browser OCR fallback for non-Unicode CID Chinese/Japanese PDFs & Scans) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <!-- pdf-lib & fontkit (for CJK Chinese/Japanese font embedding) -->
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
@@ -152,7 +154,7 @@
           PDF Editor
           <span class="bg-blue-500/20 text-blue-300 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-blue-400/30">V1</span>
         </h1>
-        <p class="text-xs text-slate-400">Local-First PDF Sanitizer • CJK & English Support • Smart Highlight • Page Cutter • 1:1 Excel Grid</p>
+        <p class="text-xs text-slate-400">Local-First PDF Sanitizer • CJK OCR & Vector Engine • Smart Highlight • Page Cutter • 1:1 Excel Grid</p>
       </div>
     </div>
 
@@ -179,6 +181,10 @@
       </label>
 
       <div id="exportBar" class="flex items-center gap-2 opacity-50 pointer-events-none">
+        <button id="runCjkOcrBtn" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-lg shadow flex items-center space-x-1.5 transition" title="Run Local Chinese/English OCR if PDF uses non-Unicode CID fonts">
+          <i class="fa-solid fa-language"></i>
+          <span>CJK OCR Recognize</span>
+        </button>
         <button id="exportExcelBtn" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow flex items-center space-x-1.5 transition">
           <i class="fa-solid fa-file-excel"></i>
           <span>Export Excel (.xlsx)</span>
@@ -197,7 +203,6 @@
 
   <!-- Secondary Editing Toolbar -->
   <div id="subBar" class="bg-white border-b border-slate-200 px-6 py-2 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm hidden z-20">
-    <!-- Left: PDF Tools -->
     <div id="toolBar" class="flex flex-wrap items-center gap-1.5">
       <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1">Tools:</span>
       <button data-mode="view" class="tool-btn active bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5">
@@ -242,7 +247,7 @@
     <!-- Right: Zoom, Undo & Hint -->
     <div class="flex items-center gap-2.5 ml-auto">
       <span id="modeHint" class="text-slate-500 hidden xl:inline font-medium">
-        <i class="fa-solid fa-shield-halved text-emerald-600 mr-1"></i>100% Local Processing • CJK & English Ready
+        <i class="fa-solid fa-shield-halved text-emerald-600 mr-1"></i>100% Local Processing • Auto CJK OCR Ready
       </span>
       <div id="zoomControls" class="flex items-center bg-slate-100 rounded-lg border border-slate-300 px-1.5 py-0.5 text-xs font-semibold text-slate-700">
         <button id="zoomOut" class="px-2 py-0.5 hover:text-blue-600 font-bold" title="Zoom Out">-</button>
@@ -252,6 +257,17 @@
       <button id="undoBtn" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5">
         <i class="fa-solid fa-rotate-left text-slate-500"></i> Undo
       </button>
+    </div>
+  </div>
+
+  <!-- OCR Progress Banner (Shown only when running CJK OCR) -->
+  <div id="ocrBanner" class="bg-amber-50 border-b border-amber-200 px-6 py-2 flex items-center justify-between text-xs text-amber-900 hidden z-20">
+    <div class="flex items-center gap-2.5 font-semibold">
+      <i class="fa-solid fa-spinner fa-spin text-amber-600"></i>
+      <span id="ocrStatusText">Initializing Local Chinese/English OCR Engine...</span>
+    </div>
+    <div class="w-48 bg-amber-200 rounded-full h-2 overflow-hidden">
+      <div id="ocrProgressBar" class="bg-amber-600 h-full transition-all duration-200" style="width: 10%"></div>
     </div>
   </div>
 
@@ -296,7 +312,7 @@
         </div>
         <h2 class="text-lg font-bold text-slate-800 mb-1.5">Drag & Drop Source PDF File Here</h2>
         <p class="text-xs text-slate-500 leading-relaxed mb-5">
-          Full support for English, Traditional/Simplified Chinese & Japanese PDFs. Includes Smart Line-Snap Highlighting, Direct Text Editing, Magnetic Alignment, Page Cutter, and 1:1 Excel Grid Preview.
+          Full support for English, Traditional/Simplified Chinese & Japanese PDFs (with built-in local CJK OCR fallback for non-Unicode carrier PDFs).
         </p>
         <label class="cursor-pointer inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow transition">
           <i class="fa-solid fa-folder-open"></i>
@@ -433,14 +449,14 @@
   </div>
 
   <script>
-    // Configure PDF.js Worker + Full CMap & Standard Font Support for Chinese/Japanese PDFs
-    const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.js`;
+    // jsDelivr serves full CORS headers (Access-Control-Allow-Origin: *) for cmaps & worker
+    const PDFJS_CDN = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/build/pdf.worker.min.js`;
 
     // Global State
     let rawPdfBytes = null;
     let pdfDoc = null;
-    let activeRenderTask = null; // Prevents concurrent canvas render collisions
+    let activeRenderTask = null;
     let cachedCjkFontBytes = null;
     let currentPage = 1;
     let totalPages = 0;
@@ -455,6 +471,7 @@
     let selectedPages = new Set();
     let pageAnnotations = {};
     let pageTextItems = {};
+    let pageOcrItems = {}; // Stores OCR-extracted text items at scale=1.0 base coordinates
     let previewMatrices = {};
 
     // Excel Preview Selection State
@@ -494,7 +511,7 @@
       if (toastTimer) clearTimeout(toastTimer);
       toastTimer = setTimeout(() => {
         toast.classList.add('translate-y-24', 'opacity-0');
-      }, 2800);
+      }, 3000);
     }
 
     // Drag and Drop file support
@@ -529,7 +546,6 @@
         const arrayBuffer = await file.arrayBuffer();
         rawPdfBytes = new Uint8Array(arrayBuffer);
 
-        // Use cMapUrl + cMapPacked without overriding embedded CJK fonts with useSystemFonts
         const loadingTask = pdfjsLib.getDocument({
           data: rawPdfBytes.slice(),
           cMapUrl: `${PDFJS_CDN}/cmaps/`,
@@ -542,6 +558,7 @@
         currentPage = 1;
         pageAnnotations = {};
         pageTextItems = {};
+        pageOcrItems = {};
         previewMatrices = {};
         selectedPages = new Set(Array.from({ length: totalPages }, (_, i) => i + 1));
 
@@ -556,8 +573,13 @@
 
         await renderThumbnails();
         updateSelectedCount();
-        // switchWorkspaceView('pdf') already calls renderPage(currentPage) once cleanly
         await switchWorkspaceView('pdf');
+
+        // Auto-detect if extracted vector text contains garbled/non-Unicode CID boxes (□□□□)
+        if (hasGarbledText(pageTextItems[1] || [])) {
+          showToast('Detected non-Unicode CID Chinese font — Auto-running Local CJK OCR...');
+          await runLocalCjkOcrOnPage(1);
+        }
       } catch (err) {
         if (err?.name === 'RenderingCancelledException') return;
         console.error('PDF Load Error:', err);
@@ -565,6 +587,133 @@
         statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40';
         alert(`Error loading PDF: ${err.message}`);
       }
+    }
+
+    // Detect if PDF uses custom CID font encoding without ToUnicode table (produces \uFFFD, \u0000, or Private Use Area boxes)
+    function hasGarbledText(items) {
+      if (!items || items.length === 0) return true; // Scanned image PDF
+      let totalChars = 0;
+      let badChars = 0;
+      items.forEach(item => {
+        for (const ch of item.str) {
+          if (/\s/.test(ch)) continue;
+          totalChars++;
+          const code = ch.charCodeAt(0);
+          if (code === 0xFFFD || code === 0x0000 || (code >= 0xE000 && code <= 0xF8FF) || code < 0x20) {
+            badChars++;
+          }
+        }
+      });
+      return totalChars > 0 && (badChars / totalChars) > 0.25;
+    }
+
+    // =========================================================================
+    // LOCAL CJK OCR ENGINE (Tesseract.js: Traditional + Simplified Chinese + English)
+    // =========================================================================
+    document.getElementById('runCjkOcrBtn').addEventListener('click', async () => {
+      if (!pdfDoc) return;
+      await runLocalCjkOcrOnPage(currentPage);
+    });
+
+    async function runLocalCjkOcrOnPage(pageNum) {
+      const banner = document.getElementById('ocrBanner');
+      const statusText = document.getElementById('ocrStatusText');
+      const progressBar = document.getElementById('ocrProgressBar');
+
+      banner.classList.remove('hidden');
+      statusText.textContent = `Rendering Page ${pageNum} at high DPI for Chinese/English OCR...`;
+      progressBar.style.width = '15%';
+
+      try {
+        const page = await pdfDoc.getPage(pageNum);
+        const ocrScale = 2.2; // High DPI for sharp Chinese character recognition
+        const viewport = page.getViewport({ scale: ocrScale });
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = viewport.width;
+        offCanvas.height = viewport.height;
+        const offCtx = offCanvas.getContext('2d');
+        offCtx.fillStyle = '#ffffff';
+        offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
+
+        await page.render({ canvasContext: offCtx, viewport }).promise;
+        progressBar.style.width = '35%';
+        statusText.textContent = `Recognizing Traditional & Simplified Chinese + English on Page ${pageNum}...`;
+
+        const worker = await Tesseract.createWorker(['chi_tra', 'chi_sim', 'eng'], 1, {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              const pct = Math.round(35 + m.progress * 60);
+              progressBar.style.width = `${pct}%`;
+              statusText.textContent = `CJK OCR Page ${pageNum}: ${Math.round(m.progress * 100)}%`;
+            }
+          }
+        });
+
+        const { data } = await worker.recognize(offCanvas);
+        await worker.terminate();
+
+        // Convert Tesseract word/line bounding boxes into normalized scale=1.0 PDF coordinates
+        const baseItems = [];
+        let idx = 0;
+        (data.words || []).forEach(w => {
+          const cleanTxt = (w.text || '').trim();
+          if (!cleanTxt) return;
+          const x1 = w.bbox.x0 / ocrScale;
+          const y1 = w.bbox.y0 / ocrScale;
+          const w1 = Math.max((w.bbox.x1 - w.bbox.x0) / ocrScale, 8);
+          const h1 = Math.max((w.bbox.y1 - w.bbox.y0) / ocrScale, 8);
+
+          baseItems.push({
+            id: idx++,
+            str: cleanTxt,
+            baseX: x1,
+            baseY: y1,
+            baseW: w1,
+            baseH: h1,
+            fontSize: Math.max(Math.round(h1 * 0.85), 8),
+            pdfX: x1,
+            pdfY: unscaledViewport.height - (y1 + h1 * 0.85),
+            pdfW: w1,
+            pdfH: h1,
+            pageWidth: unscaledViewport.width,
+            pageHeight: unscaledViewport.height
+          });
+        });
+
+        pageOcrItems[pageNum] = baseItems;
+        pageTextItems[pageNum] = scaleOcrItems(baseItems, scale);
+        delete previewMatrices[pageNum];
+
+        if (activeWorkspaceView === 'pdf' && pageNum === currentPage) {
+          renderTextOverlay(pageNum);
+          renderDragOverlay(pageNum);
+        } else if (activeWorkspaceView === 'excelPreview' && pageNum === currentPage) {
+          await renderExcelPreviewPage(pageNum);
+        }
+
+        progressBar.style.width = '100%';
+        showToast(`CJK OCR complete on Page ${pageNum}! Extracted ${baseItems.length} text blocks.`);
+      } catch (err) {
+        console.error('OCR Error:', err);
+        alert(`OCR Recognition Error: ${err.message}`);
+      } finally {
+        setTimeout(() => {
+          banner.classList.add('hidden');
+          progressBar.style.width = '10%';
+        }, 600);
+      }
+    }
+
+    function scaleOcrItems(baseItems, targetScale) {
+      return baseItems.map(b => ({
+        ...b,
+        x: b.baseX * targetScale,
+        y: b.baseY * targetScale,
+        width: b.baseW * targetScale,
+        height: b.baseH * targetScale
+      }));
     }
 
     // =========================================================================
@@ -677,6 +826,10 @@
     }
 
     async function parsePageTextItems(pageNum, targetScale) {
+      if (pageOcrItems[pageNum]) {
+        return scaleOcrItems(pageOcrItems[pageNum], targetScale);
+      }
+
       const page = await pdfDoc.getPage(pageNum);
       const viewport = page.getViewport({ scale: targetScale });
       const textContent = await page.getTextContent();
@@ -709,7 +862,6 @@
     }
 
     async function renderPage(pageNum) {
-      // Cancel any in-flight render operation on pdfCanvas before starting a new one
       if (activeRenderTask) {
         try {
           activeRenderTask.cancel();
@@ -1684,6 +1836,10 @@
         pageTextItems[pageNum] = await parsePageTextItems(pageNum, scale);
       }
 
+      if (hasGarbledText(pageTextItems[pageNum]) && !pageOcrItems[pageNum]) {
+        await runLocalCjkOcrOnPage(pageNum);
+      }
+
       if (!previewMatrices[pageNum]) {
         const effectiveItems = getEffectivePageItems(pageNum);
         const { aoa } = buildSpatialMatrix(effectiveItems);
@@ -2037,6 +2193,9 @@
         if (!pageTextItems[p]) {
           pageTextItems[p] = await parsePageTextItems(p, scale);
         }
+        if (hasGarbledText(pageTextItems[p]) && !pageOcrItems[p]) {
+          await runLocalCjkOcrOnPage(p);
+        }
         const aoa = previewMatrices[p] || buildSpatialMatrix(getEffectivePageItems(p)).aoa;
         const ws = matrixToStyledWorksheet(aoa);
         XLSX.utils.book_append_sheet(wb, ws, `Page_${p}`);
@@ -2055,7 +2214,7 @@
       });
 
       if (items.length === 0) {
-        alert('No selectable text found inside the cropped region (it may be a scanned image).');
+        alert('No selectable text found inside the cropped region.');
         return;
       }
 
