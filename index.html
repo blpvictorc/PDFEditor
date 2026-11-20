@@ -1,0 +1,2007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF Editor V1 — Unified Logistics & Document Suite</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons (Unified with SAP Remark System) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- pdf-lib -->
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <!-- SheetJS -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f1f5f9;
+    }
+    .mono-font {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .canvas-container {
+      position: relative;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 4px 10px -2px rgba(15, 23, 42, 0.08);
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      margin: 0 auto;
+    }
+    .overlay-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .text-item-box {
+      position: absolute;
+      border: 1px dashed rgba(37, 99, 235, 0.5);
+      background: rgba(37, 99, 235, 0.04);
+      cursor: pointer;
+      transition: background 0.1s, border-color 0.1s;
+    }
+    .text-item-box:hover {
+      border: 1.5px solid #2563eb;
+      background: rgba(37, 99, 235, 0.15);
+      z-index: 20;
+    }
+    .text-item-edited {
+      border: 1.5px solid #059669 !important;
+      background: rgba(5, 150, 105, 0.1) !important;
+    }
+    .draggable-badge {
+      position: absolute;
+      border: 1px dashed rgba(192, 38, 211, 0.7);
+      background: rgba(192, 38, 211, 0.05);
+      cursor: move;
+      z-index: 25;
+      transition: background 0.1s, border-color 0.1s;
+    }
+    .draggable-badge:hover {
+      background: rgba(192, 38, 211, 0.16);
+      border: 1.5px solid #c026d3;
+      z-index: 30;
+    }
+    .draggable-moved {
+      border: 1.5px solid #a21caf !important;
+      background: rgba(192, 38, 211, 0.12) !important;
+    }
+    /* Excel Grid Preview Table Styles (Unified Light Theme) */
+    .excel-grid-table {
+      border-collapse: collapse;
+      background: #ffffff;
+      color: #1e293b;
+      font-family: 'Inter', Calibri, Arial, sans-serif;
+      font-size: 12px;
+    }
+    .excel-grid-table th {
+      background: #1e293b;
+      color: #ffffff;
+      font-weight: 600;
+      border: 1px solid #334155;
+      padding: 6px 10px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .excel-grid-table th:hover {
+      background: #2563eb;
+    }
+    .excel-grid-table td.row-header {
+      background: #f8fafc;
+      color: #64748b;
+      font-weight: 600;
+      border: 1px solid #cbd5e1;
+      padding: 4px 8px;
+      text-align: center;
+      width: 44px;
+      min-width: 44px;
+      position: sticky;
+      left: 0;
+      z-index: 5;
+      cursor: pointer;
+    }
+    .excel-grid-table td.row-header:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+    .excel-grid-table td.grid-cell {
+      border: 1px solid #e2e8f0;
+      padding: 5px 8px;
+      white-space: pre-wrap;
+      min-width: 80px;
+      max-width: 340px;
+      vertical-align: top;
+      cursor: cell;
+      transition: background 0.05s;
+    }
+    .excel-grid-table td.grid-cell:hover {
+      background: #eff6ff;
+    }
+    .excel-grid-table td.cell-selected {
+      background: rgba(37, 99, 235, 0.14) !important;
+      outline: 1.5px solid #2563eb;
+      outline-offset: -1px;
+    }
+    /* Unified Light Scrollbars */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="text-slate-800 h-screen flex flex-col overflow-hidden select-none">
+
+  <!-- Top Navigation Bar (Unified Dark Slate Header) -->
+  <header class="bg-slate-900 text-white shadow-md px-6 py-3.5 flex flex-wrap justify-between items-center gap-4 z-30">
+    <div class="flex items-center space-x-3">
+      <div class="bg-blue-600 p-2 rounded-lg shadow-inner">
+        <i class="fa-solid fa-file-pdf text-xl text-white"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-wide flex items-center gap-2">
+          PDF Editor
+          <span class="bg-blue-500/20 text-blue-300 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-blue-400/30">V1</span>
+        </h1>
+        <p class="text-xs text-slate-400">Local-First PDF Sanitizer • Smart Highlight • Magnetic Alignment • Page Cutter • 1:1 Excel Grid</p>
+      </div>
+    </div>
+
+    <!-- Primary Workspace View Switcher -->
+    <div id="viewSwitchBar" class="flex items-center space-x-1.5 bg-slate-800 p-1 rounded-lg border border-slate-700 opacity-50 pointer-events-none">
+      <button id="switchPdfViewBtn" class="px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all bg-blue-600 text-white shadow flex items-center gap-1.5">
+        <i class="fa-solid fa-pen-to-square"></i> PDF Canvas Editor
+      </button>
+      <button id="switchExcelPreviewBtn" class="px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all text-slate-300 hover:text-white flex items-center gap-1.5">
+        <i class="fa-solid fa-table-cells text-emerald-400"></i> Excel Grid Preview
+      </button>
+    </div>
+
+    <!-- Right Action Buttons -->
+    <div class="flex flex-wrap items-center gap-2.5">
+      <span id="statusBadge" class="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+        Waiting for PDF File
+      </span>
+
+      <label class="cursor-pointer px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow flex items-center space-x-1.5 transition">
+        <i class="fa-solid fa-folder-open"></i>
+        <span>Open PDF</span>
+        <input type="file" id="pdfInput" accept="application/pdf" class="hidden" />
+      </label>
+
+      <div id="exportBar" class="flex items-center gap-2 opacity-50 pointer-events-none">
+        <button id="exportExcelBtn" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow flex items-center space-x-1.5 transition">
+          <i class="fa-solid fa-file-excel"></i>
+          <span>Export Excel (.xlsx)</span>
+        </button>
+        <button id="exportPdfBtn" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow flex items-center space-x-1.5 transition">
+          <i class="fa-solid fa-download"></i>
+          <span>Export PDF</span>
+        </button>
+        <button id="resetBtn" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium rounded-lg transition flex items-center space-x-1">
+          <i class="fa-solid fa-rotate-right"></i>
+          <span>Reset</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Secondary Editing Toolbar (Unified White Card Strip) -->
+  <div id="subBar" class="bg-white border-b border-slate-200 px-6 py-2 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm hidden z-20">
+    <!-- Left: PDF Tools -->
+    <div id="toolBar" class="flex flex-wrap items-center gap-1.5">
+      <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1">Tools:</span>
+      <button data-mode="view" class="tool-btn active bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5">
+        <i class="fa-solid fa-arrow-pointer"></i> View
+      </button>
+      <button data-mode="editText" class="tool-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+        <i class="fa-solid fa-i-cursor text-blue-600"></i> Edit Text
+      </button>
+      <button data-mode="addText" class="tool-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+        <i class="fa-solid fa-font text-indigo-600"></i> Add Text
+      </button>
+      <button data-mode="moveAlign" class="tool-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+        <i class="fa-solid fa-magnet text-fuchsia-600"></i> Drag & Align
+      </button>
+      <button data-mode="highlight" class="tool-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+        <i class="fa-solid fa-highlighter text-amber-500"></i> Smart Highlight
+      </button>
+      <button data-mode="whiteout" class="tool-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+        <i class="fa-solid fa-eraser text-slate-500"></i> Whiteout / Delete
+      </button>
+      <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+      <button data-mode="cropExcel" class="tool-btn bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+        <i class="fa-solid fa-crop-simple"></i> Crop Region to Excel
+      </button>
+
+      <!-- Highlight Options -->
+      <div id="highlightOptions" class="hidden flex items-center gap-3 border-l border-slate-300 pl-3 ml-1">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-500 font-medium">Color:</span>
+          <button data-color="rgba(253, 224, 71, 0.45)" data-rgb="1,0.88,0.28" class="color-swatch w-4 h-4 rounded-full bg-yellow-300 ring-2 ring-blue-600"></button>
+          <button data-color="rgba(134, 239, 172, 0.45)" data-rgb="0.52,0.94,0.67" class="color-swatch w-4 h-4 rounded-full bg-green-300 border border-slate-300"></button>
+          <button data-color="rgba(249, 168, 212, 0.45)" data-rgb="0.98,0.66,0.83" class="color-swatch w-4 h-4 rounded-full bg-pink-300 border border-slate-300"></button>
+          <button data-color="rgba(147, 197, 253, 0.45)" data-rgb="0.58,0.77,0.99" class="color-swatch w-4 h-4 rounded-full bg-blue-300 border border-slate-300"></button>
+        </div>
+        <label class="flex items-center gap-1.5 cursor-pointer text-blue-700 font-semibold bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
+          <input type="checkbox" id="snapTextChk" class="rounded text-blue-600 focus:ring-0" checked />
+          <span>Snap to Text Line</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Right: Zoom, Undo & Hint -->
+    <div class="flex items-center gap-2.5 ml-auto">
+      <span id="modeHint" class="text-slate-500 hidden xl:inline font-medium">
+        <i class="fa-solid fa-shield-halved text-emerald-600 mr-1"></i>100% Local Processing • Zero Server Upload
+      </span>
+      <div id="zoomControls" class="flex items-center bg-slate-100 rounded-lg border border-slate-300 px-1.5 py-0.5 text-xs font-semibold text-slate-700">
+        <button id="zoomOut" class="px-2 py-0.5 hover:text-blue-600 font-bold" title="Zoom Out">-</button>
+        <span id="zoomLabel" class="px-2 mono-font">130%</span>
+        <button id="zoomIn" class="px-2 py-0.5 hover:text-blue-600 font-bold" title="Zoom In">+</button>
+      </div>
+      <button id="undoBtn" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5">
+        <i class="fa-solid fa-rotate-left text-slate-500"></i> Undo
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Workspace -->
+  <div class="flex flex-1 overflow-hidden">
+    
+    <!-- Left Sidebar: Page Cutter & Thumbnails -->
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 shadow-sm z-10">
+      <div class="p-4 border-b border-slate-200 space-y-2.5 bg-slate-50/70">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+            <i class="fa-solid fa-scissors mr-1"></i>Page Cutter
+          </span>
+          <span id="selectedCountBadge" class="text-xs font-bold text-slate-700 bg-slate-200/80 px-2 py-0.5 rounded-full mono-font">0 / 0</span>
+        </div>
+        <div class="flex gap-1.5">
+          <input type="text" id="pageRangeInput" placeholder="e.g. 1, 2-5, 8" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs mono-font text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <button id="applyRangeBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs whitespace-nowrap shadow-sm transition">Apply</button>
+        </div>
+        <div class="flex gap-1.5 text-[11px] font-semibold">
+          <button id="selectAllBtn" class="flex-1 bg-white hover:bg-slate-100 border border-slate-300 py-1 rounded-md text-slate-700 transition">All</button>
+          <button id="deselectAllBtn" class="flex-1 bg-white hover:bg-slate-100 border border-slate-300 py-1 rounded-md text-slate-700 transition">None</button>
+          <button id="selectOddBtn" class="flex-1 bg-white hover:bg-slate-100 border border-slate-300 py-1 rounded-md text-slate-700 transition">Odd</button>
+        </div>
+      </div>
+
+      <div id="thumbnailList" class="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50/40">
+        <div class="text-center text-slate-400 text-xs mt-12 px-4 leading-relaxed">
+          <i class="fa-regular fa-file-pdf text-3xl text-slate-300 mb-2 block"></i>
+          Click <strong>"Open PDF"</strong> above or drag & drop a PDF file into this window.
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center Workspace Container -->
+    <main id="viewerContainer" class="flex-1 overflow-auto p-6 flex flex-col items-center relative">
+      
+      <!-- Initial Drop Zone Card -->
+      <div id="dropZone" class="bg-white border-2 border-dashed border-blue-300 hover:border-blue-500 rounded-2xl p-12 text-center my-auto max-w-lg shadow-sm transition">
+        <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+        </div>
+        <h2 class="text-lg font-bold text-slate-800 mb-1.5">Drag & Drop Source PDF File Here</h2>
+        <p class="text-xs text-slate-500 leading-relaxed mb-5">
+          Supports Smart Line-Snap Highlighting, Direct Text Editing, Free Text Insertion, Magnetic Drag & Alignment, Page Extraction (Cut Pages), and 1:1 Layout Excel Grid Preview & Copy.
+        </p>
+        <label class="cursor-pointer inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow transition">
+          <i class="fa-solid fa-folder-open"></i>
+          <span>Select PDF File from Computer</span>
+          <input type="file" id="dropZoneFileInput" accept="application/pdf" class="hidden" />
+        </label>
+      </div>
+
+      <!-- VIEW 1: PDF Canvas Editor -->
+      <div id="pageWrapper" class="hidden flex flex-col items-center w-full">
+        <div class="sticky top-0 z-20 bg-white/95 backdrop-blur border border-slate-300 rounded-full px-5 py-1.5 mb-5 flex items-center gap-4 shadow-md text-xs font-semibold text-slate-700">
+          <button id="prevPageBtn" class="hover:text-blue-600 transition flex items-center gap-1">
+            <i class="fa-solid fa-chevron-left"></i> Prev
+          </button>
+          <span class="mono-font">Page <strong id="currentPageNum" class="text-blue-600">1</strong> / <span id="totalPagesNum">1</span></span>
+          <button id="nextPageBtn" class="hover:text-blue-600 transition flex items-center gap-1">
+            Next <i class="fa-solid fa-chevron-right"></i>
+          </button>
+          <div class="h-3.5 w-[1px] bg-slate-300"></div>
+          <label class="flex items-center gap-1.5 cursor-pointer text-slate-700 hover:text-blue-600">
+            <input type="checkbox" id="currentPageIncludeChk" class="rounded text-blue-600 focus:ring-0" checked />
+            <span>Keep Page on Export</span>
+          </label>
+        </div>
+
+        <div id="canvasContainer" class="canvas-container">
+          <canvas id="pdfCanvas"></canvas>
+          <canvas id="drawCanvas" class="overlay-layer pointer-events-none"></canvas>
+          <canvas id="guideCanvas" class="overlay-layer pointer-events-none"></canvas>
+          <div id="textOverlayLayer" class="overlay-layer pointer-events-none"></div>
+          <div id="dragOverlayLayer" class="overlay-layer pointer-events-none"></div>
+          <div id="interactionLayer" class="overlay-layer"></div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: Excel Grid Preview & Copy Mode -->
+      <div id="excelPreviewWrapper" class="hidden flex flex-col w-full h-full max-w-[1600px]">
+        <!-- Excel Preview Action Bar (Unified Card Style) -->
+        <div class="bg-white border border-slate-200 rounded-xl px-5 py-3 mb-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+          <div class="flex items-center gap-2.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
+              <i class="fa-solid fa-table-cells mr-1"></i>1:1 Excel Grid
+            </span>
+            <div id="previewPageTabs" class="flex items-center gap-1.5 overflow-x-auto max-w-[460px]">
+              <!-- Dynamic Page Tabs -->
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <span id="selectionStatusText" class="text-slate-500 font-medium mr-1">0 cells selected (Drag to select, Ctrl+C to copy)</span>
+            <button id="selectAllGridBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-semibold px-3 py-1.5 rounded-lg transition">
+              Select All Cells
+            </button>
+            <button id="copySelectedCellsBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-regular fa-copy"></i>
+              <span>Copy Selected (Ctrl+C)</span>
+            </button>
+            <button id="resetGridBtn" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1" title="Re-sync layout from PDF Canvas">
+              <i class="fa-solid fa-arrows-rotate text-blue-600"></i>
+              <span>Sync PDF</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Scrollable Spreadsheet Grid Container -->
+        <div id="excelGridContainer" class="flex-1 overflow-auto bg-white rounded-xl border border-slate-300 shadow-inner">
+          <!-- Rendered Table goes here -->
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Unified Toast Notification (Matches Container Manifest & SAP Remark System) -->
+  <div id="toastMsg" class="fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-emerald-500/50 flex items-center space-x-2.5 z-50 transform translate-y-24 opacity-0 transition-all duration-200 pointer-events-none">
+    <i class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+    <span id="toastText" class="text-xs font-bold">Copied to clipboard! Ready to paste (Ctrl+V) in Excel.</span>
+  </div>
+
+  <!-- Modal for Editing / Adding Text (Unified Light Card Modal) -->
+  <div id="editModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs hidden items-center justify-center z-50">
+    <div class="bg-white border border-slate-200 rounded-xl p-6 w-full max-w-md shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-200 pb-3">
+        <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2" id="editModalTitle">
+          <i class="fa-solid fa-pen-to-square text-blue-600"></i> Edit PDF Text
+        </h3>
+        <button id="closeModalBtn" class="text-slate-400 hover:text-slate-700 text-sm p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="space-y-3.5 text-xs">
+        <div id="origPreviewBox">
+          <label class="block font-semibold text-slate-500 mb-1">Original Text:</label>
+          <div id="originalTextPreview" class="bg-slate-100 border border-slate-200 p-2.5 rounded-lg text-slate-600 mono-font break-all"></div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Text Content:</label>
+          <input type="text" id="newTextInput" placeholder="Enter text..." class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 mono-font focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="grid grid-cols-3 gap-2.5">
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Font Size:</label>
+            <input type="number" id="fontSizeInput" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 mono-font focus:outline-none focus:ring-2 focus:ring-blue-500" value="10" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Alignment:</label>
+            <select id="textAlignInput" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Text Color:</label>
+            <select id="textColorInput" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="0,0,0">Black</option>
+              <option value="0.85,0.1,0.1">Red</option>
+              <option value="0.1,0.3,0.85">Blue</option>
+            </select>
+          </div>
+        </div>
+        <div class="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg p-2.5 flex items-start gap-2">
+          <i class="fa-solid fa-circle-info mt-0.5"></i>
+          <span>Tip: After applying, switch to <strong>"Drag & Align"</strong> mode to reposition any text with magnetic snap guides.</span>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
+        <button id="deleteTextBtn" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1">
+          <i class="fa-solid fa-trash-can"></i> Delete Text
+        </button>
+        <button id="saveTextEditBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-1.5 rounded-lg text-xs shadow-sm transition">
+          Apply Changes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    // Global State
+    let rawPdfBytes = null;
+    let pdfDoc = null;
+    let currentPage = 1;
+    let totalPages = 0;
+    let scale = 1.3;
+    let activeWorkspaceView = 'pdf'; // 'pdf' | 'excelPreview'
+    let currentMode = 'view';
+    let currentHighlightColor = 'rgba(253, 224, 71, 0.45)';
+    let currentHighlightRgb = [1, 0.88, 0.28];
+    let originalFileName = 'document';
+
+    // Per-page state
+    let selectedPages = new Set();
+    let pageAnnotations = {};
+    let pageTextItems = {};
+    let previewMatrices = {};
+
+    // Excel Preview Selection State
+    let isSelectingCells = false;
+    let selStartCell = null;
+    let selectedCellCoords = new Set();
+
+    // Active Edit Target
+    let activeEditItem = null;
+    let activeExistingAnn = null;
+    let activeAddCoords = null;
+
+    // Drawing / Dragging state
+    let isDrawing = false;
+    let startX = 0, startY = 0;
+    let draggingAnn = null;
+    let dragOffsetX = 0, dragOffsetY = 0;
+
+    // DOM Elements
+    const pdfInput = document.getElementById('pdfInput');
+    const dropZoneFileInput = document.getElementById('dropZoneFileInput');
+    const pdfCanvas = document.getElementById('pdfCanvas');
+    const drawCanvas = document.getElementById('drawCanvas');
+    const guideCanvas = document.getElementById('guideCanvas');
+    const textOverlayLayer = document.getElementById('textOverlayLayer');
+    const dragOverlayLayer = document.getElementById('dragOverlayLayer');
+    const interactionLayer = document.getElementById('interactionLayer');
+    const ctx = pdfCanvas.getContext('2d');
+    const drawCtx = drawCanvas.getContext('2d');
+    const guideCtx = guideCanvas.getContext('2d');
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toastMsg');
+      document.getElementById('toastText').textContent = msg;
+      toast.classList.remove('translate-y-24', 'opacity-0');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-24', 'opacity-0');
+      }, 2600);
+    }
+
+    // Drag and Drop file support
+    document.body.addEventListener('dragover', e => e.preventDefault());
+    document.body.addEventListener('drop', e => {
+      e.preventDefault();
+      if (e.dataTransfer.files && e.dataTransfer.files[0]?.type === 'application/pdf') {
+        loadPdfFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    pdfInput.addEventListener('change', e => {
+      if (e.target.files[0]) loadPdfFile(e.target.files[0]);
+    });
+    dropZoneFileInput.addEventListener('change', e => {
+      if (e.target.files[0]) loadPdfFile(e.target.files[0]);
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      if (confirm('Reset workspace and clear the current PDF?')) {
+        location.reload();
+      }
+    });
+
+    async function loadPdfFile(file) {
+      originalFileName = file.name.replace(/\.pdf$/i, '');
+      
+      const arrayBuffer = await file.arrayBuffer();
+      rawPdfBytes = new Uint8Array(arrayBuffer);
+      
+      pdfDoc = await pdfjsLib.getDocument({ data: rawPdfBytes.slice() }).promise;
+      totalPages = pdfDoc.numPages;
+      currentPage = 1;
+      pageAnnotations = {};
+      pageTextItems = {};
+      previewMatrices = {};
+      selectedPages = new Set(Array.from({ length: totalPages }, (_, i) => i + 1));
+
+      const statusBadge = document.getElementById('statusBadge');
+      statusBadge.textContent = `Loaded: ${file.name} (${totalPages} Pages)`;
+      statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 max-w-[260px] truncate';
+
+      document.getElementById('viewSwitchBar').classList.remove('opacity-50', 'pointer-events-none');
+      document.getElementById('exportBar').classList.remove('opacity-50', 'pointer-events-none');
+      document.getElementById('subBar').classList.remove('hidden');
+      document.getElementById('dropZone').classList.add('hidden');
+      document.getElementById('totalPagesNum').textContent = totalPages;
+
+      await renderThumbnails();
+      updateSelectedCount();
+      switchWorkspaceView('pdf');
+      await renderPage(currentPage);
+    }
+
+    // =========================================================================
+    // WORKSPACE VIEW SWITCHER (PDF Canvas Editor <-> Excel Grid Preview)
+    // =========================================================================
+    document.getElementById('switchPdfViewBtn').addEventListener('click', () => switchWorkspaceView('pdf'));
+    document.getElementById('switchExcelPreviewBtn').addEventListener('click', () => switchWorkspaceView('excelPreview'));
+
+    async function switchWorkspaceView(view) {
+      if (!pdfDoc) return;
+      activeWorkspaceView = view;
+
+      const pdfBtn = document.getElementById('switchPdfViewBtn');
+      const xlBtn = document.getElementById('switchExcelPreviewBtn');
+      const pageWrapper = document.getElementById('pageWrapper');
+      const excelWrapper = document.getElementById('excelPreviewWrapper');
+      const toolBar = document.getElementById('toolBar');
+      const zoomControls = document.getElementById('zoomControls');
+
+      if (view === 'pdf') {
+        pdfBtn.className = 'px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all bg-blue-600 text-white shadow flex items-center gap-1.5';
+        xlBtn.className = 'px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all text-slate-300 hover:text-white flex items-center gap-1.5';
+        pageWrapper.classList.remove('hidden');
+        excelWrapper.classList.add('hidden');
+        toolBar.classList.remove('hidden');
+        zoomControls.classList.remove('hidden');
+        await renderPage(currentPage);
+      } else {
+        xlBtn.className = 'px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all bg-emerald-600 text-white shadow flex items-center gap-1.5';
+        pdfBtn.className = 'px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all text-slate-300 hover:text-white flex items-center gap-1.5';
+        pageWrapper.classList.add('hidden');
+        excelWrapper.classList.remove('hidden');
+        toolBar.classList.add('hidden');
+        zoomControls.classList.add('hidden');
+        document.getElementById('highlightOptions').classList.add('hidden');
+        await renderExcelPreviewPage(currentPage);
+      }
+    }
+
+    async function renderThumbnails() {
+      const list = document.getElementById('thumbnailList');
+      list.innerHTML = '';
+
+      for (let i = 1; i <= totalPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const viewport = page.getViewport({ scale: 0.25 });
+
+        const card = document.createElement('div');
+        card.id = `thumb-card-${i}`;
+        card.className = `p-2.5 rounded-xl border transition cursor-pointer flex flex-col items-center gap-1.5 ${
+          i === currentPage ? 'bg-blue-50 border-blue-500 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-300'
+        }`;
+
+        const header = document.createElement('div');
+        header.className = 'w-full flex items-center justify-between text-xs px-1';
+        header.innerHTML = `
+          <label class="flex items-center gap-1.5 cursor-pointer" onclick="event.stopPropagation()">
+            <input type="checkbox" class="page-chk rounded text-blue-600 focus:ring-0" data-page="${i}" ${selectedPages.has(i) ? 'checked' : ''} />
+            <span class="font-bold text-slate-700 mono-font">Page ${i}</span>
+          </label>
+          <span id="badge-mod-${i}" class="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded hidden">Edited</span>
+        `;
+
+        const thumbCanvas = document.createElement('canvas');
+        thumbCanvas.width = viewport.width;
+        thumbCanvas.height = viewport.height;
+        thumbCanvas.className = 'rounded border border-slate-200 bg-white shadow-2xs';
+        await page.render({ canvasContext: thumbCanvas.getContext('2d'), viewport }).promise;
+
+        card.appendChild(header);
+        card.appendChild(thumbCanvas);
+
+        card.addEventListener('click', () => {
+          currentPage = i;
+          if (activeWorkspaceView === 'pdf') renderPage(currentPage);
+          else renderExcelPreviewPage(currentPage);
+        });
+
+        header.querySelector('.page-chk').addEventListener('change', (e) => {
+          if (e.target.checked) selectedPages.add(i);
+          else selectedPages.delete(i);
+          updateSelectedCount();
+          if (i === currentPage) {
+            document.getElementById('currentPageIncludeChk').checked = e.target.checked;
+          }
+          if (activeWorkspaceView === 'excelPreview') renderPreviewPageTabs();
+        });
+
+        list.appendChild(card);
+      }
+    }
+
+    function updateSelectedCount() {
+      document.getElementById('selectedCountBadge').textContent = `${selectedPages.size} / ${totalPages}`;
+      document.querySelectorAll('.page-chk').forEach(chk => {
+        const p = parseInt(chk.dataset.page);
+        chk.checked = selectedPages.has(p);
+      });
+      document.getElementById('currentPageIncludeChk').checked = selectedPages.has(currentPage);
+    }
+
+    function highlightActiveThumbnail(pageNum) {
+      document.querySelectorAll('[id^="thumb-card-"]').forEach(el => {
+        el.className = 'p-2.5 rounded-xl border transition cursor-pointer flex flex-col items-center gap-1.5 bg-white border-slate-200 hover:border-blue-300';
+      });
+      const activeCard = document.getElementById(`thumb-card-${pageNum}`);
+      if (activeCard) {
+        activeCard.className = 'p-2.5 rounded-xl border transition cursor-pointer flex flex-col items-center gap-1.5 bg-blue-50 border-blue-500 shadow-sm';
+      }
+    }
+
+    async function parsePageTextItems(pageNum, targetScale) {
+      const page = await pdfDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale: targetScale });
+      const textContent = await page.getTextContent();
+      const unscaledViewport = page.getViewport({ scale: 1.0 });
+
+      return textContent.items.map((item, idx) => {
+        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+        const fontHeight = Math.hypot(tx[2], tx[3]);
+        const itemWidth = item.width * targetScale;
+        const pdfX = item.transform[4];
+        const pdfY = item.transform[5];
+        const pdfFontSize = Math.hypot(item.transform[2], item.transform[3]);
+
+        return {
+          id: idx,
+          str: item.str,
+          x: tx[4],
+          y: tx[5] - fontHeight * 0.88,
+          width: Math.max(itemWidth, 8),
+          height: fontHeight * 1.05,
+          fontSize: Math.round(pdfFontSize),
+          pdfX,
+          pdfY,
+          pdfW: item.width,
+          pdfH: pdfFontSize,
+          pageWidth: unscaledViewport.width,
+          pageHeight: unscaledViewport.height
+        };
+      }).filter(t => t.str.trim().length > 0);
+    }
+
+    async function renderPage(pageNum) {
+      document.getElementById('currentPageNum').textContent = pageNum;
+      document.getElementById('currentPageIncludeChk').checked = selectedPages.has(pageNum);
+      highlightActiveThumbnail(pageNum);
+
+      const page = await pdfDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale });
+
+      pdfCanvas.width = viewport.width;
+      pdfCanvas.height = viewport.height;
+      drawCanvas.width = viewport.width;
+      drawCanvas.height = viewport.height;
+      guideCanvas.width = viewport.width;
+      guideCanvas.height = viewport.height;
+
+      const container = document.getElementById('canvasContainer');
+      container.style.width = `${viewport.width}px`;
+      container.style.height = `${viewport.height}px`;
+
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      pageTextItems[pageNum] = await parsePageTextItems(pageNum, scale);
+
+      renderTextOverlay(pageNum);
+      renderDragOverlay(pageNum);
+      redrawAnnotations(pageNum);
+    }
+
+    function measurePdfTextWidth(text, fontSize) {
+      drawCtx.save();
+      drawCtx.font = `${fontSize}px Helvetica, Arial, sans-serif`;
+      const w = drawCtx.measureText(text).width;
+      drawCtx.restore();
+      return w;
+    }
+
+    function getAlignedPdfX(ann) {
+      const textW = measurePdfTextWidth(ann.newText, ann.fontSize);
+      if (ann.type === 'textEdit') {
+        const origCenter = ann.origPdfX + ann.origPdfW / 2;
+        const origRight = ann.origPdfX + ann.origPdfW;
+        if (ann.align === 'center') return origCenter - textW / 2;
+        if (ann.align === 'right') return origRight - textW;
+        return ann.origPdfX;
+      } else {
+        if (ann.align === 'center') return ann.anchorX - textW / 2;
+        if (ann.align === 'right') return ann.anchorX - textW;
+        return ann.anchorX;
+      }
+    }
+
+    function renderTextOverlay(pageNum) {
+      textOverlayLayer.innerHTML = '';
+      const items = pageTextItems[pageNum] || [];
+      const anns = pageAnnotations[pageNum] || [];
+
+      items.forEach(item => {
+        const box = document.createElement('div');
+        box.className = 'text-item-box';
+        box.style.left = `${item.x}px`;
+        box.style.top = `${item.y}px`;
+        box.style.width = `${item.width}px`;
+        box.style.height = `${item.height}px`;
+        box.title = `Click to edit: "${item.str}"`;
+
+        const existingEdit = anns.find(a => a.type === 'textEdit' && a.itemId === item.id);
+        if (existingEdit) box.classList.add('text-item-edited');
+
+        box.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openEditModal(item, existingEdit);
+        });
+
+        textOverlayLayer.appendChild(box);
+      });
+
+      updateLayerPointerEvents();
+    }
+
+    function renderDragOverlay(pageNum) {
+      dragOverlayLayer.innerHTML = '';
+      const items = pageTextItems[pageNum] || [];
+      const anns = pageAnnotations[pageNum] || [];
+
+      items.forEach(item => {
+        const existingEdit = anns.find(a => a.type === 'textEdit' && a.itemId === item.id);
+        if (existingEdit && existingEdit.newText.trim() === '') return;
+
+        const handle = document.createElement('div');
+        handle.className = `draggable-badge ${existingEdit ? 'draggable-moved' : ''}`;
+
+        let boxX, boxY, boxW, boxH;
+        if (existingEdit) {
+          const drawX = existingEdit.customPdfX !== undefined ? existingEdit.customPdfX : getAlignedPdfX(existingEdit);
+          const textW = Math.max(measurePdfTextWidth(existingEdit.newText, existingEdit.fontSize), 16);
+          boxX = drawX * scale - 2;
+          boxY = (existingEdit.pageHeight - existingEdit.pdfY - existingEdit.fontSize * 0.9) * scale;
+          boxW = textW * scale + 4;
+          boxH = existingEdit.fontSize * scale * 1.15;
+        } else {
+          boxX = item.x;
+          boxY = item.y;
+          boxW = item.width;
+          boxH = item.height;
+        }
+
+        handle.style.left = `${boxX}px`;
+        handle.style.top = `${boxY}px`;
+        handle.style.width = `${boxW}px`;
+        handle.style.height = `${boxH}px`;
+        handle.title = `Drag to reposition with magnetic snap: "${existingEdit ? existingEdit.newText : item.str}" (Double-click to edit text)`;
+
+        handle.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+          if (!pageAnnotations[pageNum]) pageAnnotations[pageNum] = [];
+
+          let targetAnn = pageAnnotations[pageNum].find(a => a.type === 'textEdit' && a.itemId === item.id);
+          if (!targetAnn) {
+            targetAnn = {
+              type: 'textEdit',
+              itemId: item.id,
+              newText: item.str,
+              fontSize: Math.max(item.fontSize, 8),
+              align: 'left',
+              rgb: [0, 0, 0],
+              origPdfX: item.pdfX,
+              origPdfY: item.pdfY,
+              origPdfW: item.pdfW,
+              origPdfH: item.pdfH,
+              pdfY: item.pdfY,
+              customPdfX: item.pdfX,
+              pageHeight: item.pageHeight
+            };
+            pageAnnotations[pageNum].push(targetAnn);
+            renderTextOverlay(pageNum);
+          }
+
+          draggingAnn = { ann: targetAnn, boxW, boxH };
+          const rect = dragOverlayLayer.getBoundingClientRect();
+          dragOffsetX = (e.clientX - rect.left) - boxX;
+          dragOffsetY = (e.clientY - rect.top) - boxY;
+        });
+
+        handle.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          const currentAnn = (pageAnnotations[pageNum] || []).find(a => a.type === 'textEdit' && a.itemId === item.id);
+          openEditModal(item, currentAnn);
+        });
+
+        dragOverlayLayer.appendChild(handle);
+      });
+
+      anns.forEach(ann => {
+        if (!['addText', 'highlight', 'whiteout'].includes(ann.type)) return;
+
+        const handle = document.createElement('div');
+        handle.className = 'draggable-badge draggable-moved';
+
+        let boxX, boxY, boxW, boxH;
+        if (ann.type === 'addText') {
+          const drawX = ann.customPdfX !== undefined ? ann.customPdfX : getAlignedPdfX(ann);
+          const textW = Math.max(measurePdfTextWidth(ann.newText, ann.fontSize), 20);
+          boxX = drawX * scale - 2;
+          boxY = (ann.pageHeight - ann.pdfY - ann.fontSize * 0.9) * scale;
+          boxW = textW * scale + 4;
+          boxH = ann.fontSize * scale * 1.15;
+        } else {
+          boxX = ann.x * scale;
+          boxY = ann.y * scale;
+          boxW = ann.w * scale;
+          boxH = ann.h * scale;
+        }
+
+        handle.style.left = `${boxX}px`;
+        handle.style.top = `${boxY}px`;
+        handle.style.width = `${boxW}px`;
+        handle.style.height = `${boxH}px`;
+        handle.title = 'Drag to reposition with magnetic snap';
+
+        handle.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+          draggingAnn = { ann, boxW, boxH };
+          const rect = dragOverlayLayer.getBoundingClientRect();
+          dragOffsetX = (e.clientX - rect.left) - boxX;
+          dragOffsetY = (e.clientY - rect.top) - boxY;
+        });
+
+        if (ann.type === 'addText') {
+          handle.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            openAddTextModal(ann.anchorX, ann.pdfY, ann.pageHeight, ann);
+          });
+        }
+
+        dragOverlayLayer.appendChild(handle);
+      });
+    }
+
+    // Magnetic Snap Dragging Logic
+    window.addEventListener('mousemove', (e) => {
+      if (!draggingAnn) return;
+      const rect = dragOverlayLayer.getBoundingClientRect();
+      let rawLeft = (e.clientX - rect.left) - dragOffsetX;
+      let rawTop = (e.clientY - rect.top) - dragOffsetY;
+
+      const { ann, boxW, boxH } = draggingAnn;
+      const pageW = pdfCanvas.width;
+      const pageH = pdfCanvas.height;
+      const centerX = rawLeft + boxW / 2;
+      const midY = rawTop + boxH / 2;
+
+      guideCtx.clearRect(0, 0, pageW, pageH);
+      const snapThreshold = 6;
+      let snappedX = false;
+      let snappedY = false;
+
+      const pageCenter = pageW / 2;
+      if (Math.abs(centerX - pageCenter) <= snapThreshold) {
+        rawLeft = pageCenter - boxW / 2;
+        snappedX = pageCenter;
+      }
+
+      const items = pageTextItems[currentPage] || [];
+      for (const item of items) {
+        if (ann.type === 'textEdit' && item.id === ann.itemId) continue;
+
+        if (!snappedX && Math.abs(rawLeft - item.x) <= snapThreshold) {
+          rawLeft = item.x;
+          snappedX = item.x;
+        }
+        const itemRight = item.x + item.width;
+        if (!snappedX && Math.abs((rawLeft + boxW) - itemRight) <= snapThreshold) {
+          rawLeft = itemRight - boxW;
+          snappedX = itemRight;
+        }
+        const itemCenter = item.x + item.width / 2;
+        if (!snappedX && Math.abs((rawLeft + boxW / 2) - itemCenter) <= snapThreshold) {
+          rawLeft = itemCenter - boxW / 2;
+          snappedX = itemCenter;
+        }
+        const itemMidY = item.y + item.height / 2;
+        if (!snappedY && Math.abs(midY - itemMidY) <= snapThreshold) {
+          rawTop = itemMidY - boxH / 2;
+          snappedY = itemMidY;
+        }
+      }
+
+      guideCtx.strokeStyle = '#d946ef';
+      guideCtx.lineWidth = 1.25;
+      guideCtx.setLineDash([4, 3]);
+      if (snappedX !== false) {
+        guideCtx.beginPath();
+        guideCtx.moveTo(snappedX, 0);
+        guideCtx.lineTo(snappedX, pageH);
+        guideCtx.stroke();
+      }
+      if (snappedY !== false) {
+        guideCtx.beginPath();
+        guideCtx.moveTo(0, snappedY);
+        guideCtx.lineTo(pageW, snappedY);
+        guideCtx.stroke();
+      }
+      guideCtx.setLineDash([]);
+
+      if (ann.type === 'textEdit' || ann.type === 'addText') {
+        ann.customPdfX = (rawLeft + 2) / scale;
+        ann.pdfY = ann.pageHeight - ((rawTop + ann.fontSize * scale * 0.9) / scale);
+      } else {
+        ann.x = rawLeft / scale;
+        ann.y = rawTop / scale;
+      }
+
+      delete previewMatrices[currentPage];
+      redrawAnnotations(currentPage);
+      renderDragOverlay(currentPage);
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (draggingAnn) {
+        draggingAnn = null;
+        guideCtx.clearRect(0, 0, guideCanvas.width, guideCanvas.height);
+      }
+      isSelectingCells = false;
+    });
+
+    // Smart Text-Snap Highlight Engine
+    function computeSnappedHighlightRects(pageNum, selX, selY, selW, selH, isSingleClick = false) {
+      const items = pageTextItems[pageNum] || [];
+      const padX = 2;
+      const padY = 1;
+
+      const hitItems = items.filter(item => {
+        if (isSingleClick) {
+          return selX >= item.x - 2 && selX <= item.x + item.width + 2 &&
+                 selY >= item.y - 2 && selY <= item.y + item.height + 2;
+        }
+        const overlapX = Math.max(0, Math.min(selX + selW, item.x + item.width) - Math.max(selX, item.x));
+        const overlapY = Math.max(0, Math.min(selY + selH, item.y + item.height) - Math.max(selY, item.y));
+        return overlapX > 2 && overlapY > item.height * 0.25;
+      });
+
+      if (hitItems.length === 0) return [];
+
+      const sorted = [...hitItems].sort((a, b) => a.y - b.y);
+      const lines = [];
+
+      sorted.forEach(item => {
+        const itemMidY = item.y + item.height / 2;
+        const matchedLine = lines.find(line => Math.abs(line.midY - itemMidY) <= item.height * 0.55);
+        if (matchedLine) {
+          matchedLine.items.push(item);
+          matchedLine.top = Math.min(matchedLine.top, item.y);
+          matchedLine.bottom = Math.max(matchedLine.bottom, item.y + item.height);
+          matchedLine.midY = (matchedLine.top + matchedLine.bottom) / 2;
+        } else {
+          lines.push({
+            items: [item],
+            top: item.y,
+            bottom: item.y + item.height,
+            midY: itemMidY
+          });
+        }
+      });
+
+      return lines.map(line => {
+        const minItemX = Math.min(...line.items.map(i => i.x));
+        const maxItemX = Math.max(...line.items.map(i => i.x + i.width));
+
+        let finalLeft, finalRight;
+        if (isSingleClick) {
+          finalLeft = minItemX - padX;
+          finalRight = maxItemX + padX;
+        } else {
+          finalLeft = Math.max(minItemX - padX, Math.min(selX, maxItemX));
+          finalRight = Math.min(maxItemX + padX, Math.max(selX + selW, minItemX));
+          if (Math.abs(finalLeft - minItemX) < 12) finalLeft = minItemX - padX;
+          if (Math.abs(finalRight - maxItemX) < 12) finalRight = maxItemX + padX;
+        }
+
+        return {
+          x: finalLeft / scale,
+          y: (line.top - padY) / scale,
+          w: Math.max(finalRight - finalLeft, 6) / scale,
+          h: ((line.bottom - line.top) + padY * 2) / scale
+        };
+      });
+    }
+
+    function redrawAnnotations(pageNum) {
+      drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+      const anns = pageAnnotations[pageNum] || [];
+
+      anns.forEach(ann => {
+        if (ann.type === 'highlight') {
+          drawCtx.fillStyle = ann.color;
+          drawCtx.fillRect(ann.x * scale, ann.y * scale, ann.w * scale, ann.h * scale);
+        } else if (ann.type === 'whiteout') {
+          drawCtx.fillStyle = '#ffffff';
+          drawCtx.fillRect(ann.x * scale, ann.y * scale, ann.w * scale, ann.h * scale);
+          drawCtx.strokeStyle = 'rgba(203, 213, 225, 0.8)';
+          drawCtx.strokeRect(ann.x * scale, ann.y * scale, ann.w * scale, ann.h * scale);
+        } else if (ann.type === 'textEdit') {
+          drawCtx.fillStyle = '#ffffff';
+          drawCtx.fillRect(ann.origPdfX * scale - 1, (ann.pageHeight - ann.origPdfY - ann.origPdfH * 0.95) * scale, ann.origPdfW * scale + 4, ann.origPdfH * scale * 1.25);
+          if (ann.newText.trim() !== '') {
+            const drawX = ann.customPdfX !== undefined ? ann.customPdfX : getAlignedPdfX(ann);
+            const [r, g, b] = ann.rgb;
+            drawCtx.fillStyle = `rgb(${r * 255}, ${g * 255}, ${b * 255})`;
+            drawCtx.font = `${ann.fontSize * scale}px Helvetica, Arial, sans-serif`;
+            drawCtx.fillText(ann.newText, drawX * scale, (ann.pageHeight - ann.pdfY) * scale);
+          }
+        } else if (ann.type === 'addText') {
+          const drawX = ann.customPdfX !== undefined ? ann.customPdfX : getAlignedPdfX(ann);
+          const [r, g, b] = ann.rgb;
+          drawCtx.fillStyle = `rgb(${r * 255}, ${g * 255}, ${b * 255})`;
+          drawCtx.font = `${ann.fontSize * scale}px Helvetica, Arial, sans-serif`;
+          drawCtx.fillText(ann.newText, drawX * scale, (ann.pageHeight - ann.pdfY) * scale);
+        }
+      });
+
+      const badge = document.getElementById(`badge-mod-${pageNum}`);
+      if (badge) {
+        if (anns.length > 0) badge.classList.remove('hidden');
+        else badge.classList.add('hidden');
+      }
+    }
+
+    // Mode Switching
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tool-btn').forEach(b => {
+          b.classList.remove('active', 'bg-blue-600', 'text-white', 'shadow-sm');
+          if (b.dataset.mode === 'cropExcel') {
+            b.className = 'tool-btn bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5';
+          } else {
+            b.className = 'tool-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5';
+          }
+        });
+
+        btn.className = 'tool-btn active bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5';
+        currentMode = btn.dataset.mode;
+        updateLayerPointerEvents();
+
+        const hlOpts = document.getElementById('highlightOptions');
+        hlOpts.classList.toggle('hidden', currentMode !== 'highlight');
+
+        if (currentMode === 'moveAlign') {
+          renderDragOverlay(currentPage);
+        }
+      });
+    });
+
+    function updateLayerPointerEvents() {
+      textOverlayLayer.classList.add('pointer-events-none');
+      dragOverlayLayer.classList.add('pointer-events-none');
+      interactionLayer.classList.add('pointer-events-none');
+      interactionLayer.style.cursor = 'default';
+
+      if (currentMode === 'editText') {
+        textOverlayLayer.classList.remove('pointer-events-none');
+      } else if (currentMode === 'moveAlign') {
+        dragOverlayLayer.classList.remove('pointer-events-none');
+      } else if (['highlight', 'whiteout', 'cropExcel'].includes(currentMode)) {
+        interactionLayer.classList.remove('pointer-events-none');
+        interactionLayer.style.cursor = currentMode === 'highlight' ? 'text' : 'crosshair';
+      } else if (currentMode === 'addText') {
+        interactionLayer.classList.remove('pointer-events-none');
+        interactionLayer.style.cursor = 'text';
+      }
+    }
+
+    document.querySelectorAll('.color-swatch').forEach(swatch => {
+      swatch.addEventListener('click', () => {
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('ring-2', 'ring-blue-600'));
+        swatch.classList.add('ring-2', 'ring-blue-600');
+        currentHighlightColor = swatch.dataset.color;
+        currentHighlightRgb = swatch.dataset.rgb.split(',').map(Number);
+      });
+    });
+
+    interactionLayer.addEventListener('mousedown', (e) => {
+      const rect = interactionLayer.getBoundingClientRect();
+      startX = e.clientX - rect.left;
+      startY = e.clientY - rect.top;
+
+      if (currentMode === 'addText') {
+        const unscaledX = startX / scale;
+        const pageHeight = pdfCanvas.height / scale;
+        const unscaledPdfY = pageHeight - (startY / scale);
+        openAddTextModal(unscaledX, unscaledPdfY, pageHeight, null);
+        return;
+      }
+
+      isDrawing = true;
+    });
+
+    interactionLayer.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      const rect = interactionLayer.getBoundingClientRect();
+      const currX = e.clientX - rect.left;
+      const currY = e.clientY - rect.top;
+
+      redrawAnnotations(currentPage);
+
+      const x = Math.min(startX, currX);
+      const y = Math.min(startY, currY);
+      const w = Math.abs(currX - startX);
+      const h = Math.abs(currY - startY);
+
+      if (currentMode === 'highlight') {
+        const snapEnabled = document.getElementById('snapTextChk').checked;
+        if (snapEnabled) {
+          const snappedRects = computeSnappedHighlightRects(currentPage, x, y, w, h, false);
+          drawCtx.fillStyle = currentHighlightColor;
+          if (snappedRects.length > 0) {
+            snappedRects.forEach(r => {
+              drawCtx.fillRect(r.x * scale, r.y * scale, r.w * scale, r.h * scale);
+            });
+          } else {
+            drawCtx.strokeStyle = 'rgba(234, 179, 8, 0.75)';
+            drawCtx.setLineDash([4, 2]);
+            drawCtx.strokeRect(x, y, w, h);
+            drawCtx.setLineDash([]);
+          }
+        } else {
+          drawCtx.fillStyle = currentHighlightColor;
+          drawCtx.fillRect(x, y, w, h);
+        }
+      } else if (currentMode === 'whiteout') {
+        drawCtx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        drawCtx.fillRect(x, y, w, h);
+        drawCtx.strokeStyle = '#64748b';
+        drawCtx.strokeRect(x, y, w, h);
+      } else if (currentMode === 'cropExcel') {
+        drawCtx.fillStyle = 'rgba(16, 185, 129, 0.14)';
+        drawCtx.fillRect(x, y, w, h);
+        drawCtx.strokeStyle = '#059669';
+        drawCtx.lineWidth = 2;
+        drawCtx.setLineDash([5, 3]);
+        drawCtx.strokeRect(x, y, w, h);
+        drawCtx.setLineDash([]);
+        drawCtx.lineWidth = 1;
+      }
+    });
+
+    interactionLayer.addEventListener('mouseup', (e) => {
+      if (!isDrawing) return;
+      isDrawing = false;
+
+      const rect = interactionLayer.getBoundingClientRect();
+      const endX = e.clientX - rect.left;
+      const endY = e.clientY - rect.top;
+
+      const rawX = Math.min(startX, endX);
+      const rawY = Math.min(startY, endY);
+      const rawW = Math.abs(endX - startX);
+      const rawH = Math.abs(endY - startY);
+
+      if (!pageAnnotations[currentPage]) pageAnnotations[currentPage] = [];
+      const pageHeight = pdfCanvas.height / scale;
+
+      if (currentMode === 'highlight') {
+        const snapEnabled = document.getElementById('snapTextChk').checked;
+        const isSingleClick = rawW < 4 && rawH < 4;
+
+        if (snapEnabled) {
+          const snappedRects = isSingleClick
+            ? computeSnappedHighlightRects(currentPage, endX, endY, 0, 0, true)
+            : computeSnappedHighlightRects(currentPage, rawX, rawY, rawW, rawH, false);
+
+          snappedRects.forEach(r => {
+            pageAnnotations[currentPage].push({
+              type: 'highlight',
+              x: r.x, y: r.y, w: r.w, h: r.h,
+              color: currentHighlightColor,
+              rgb: currentHighlightRgb,
+              pageHeight
+            });
+          });
+        } else if (!isSingleClick) {
+          pageAnnotations[currentPage].push({
+            type: 'highlight',
+            x: rawX / scale, y: rawY / scale, w: rawW / scale, h: rawH / scale,
+            color: currentHighlightColor,
+            rgb: currentHighlightRgb,
+            pageHeight
+          });
+        }
+        redrawAnnotations(currentPage);
+        renderDragOverlay(currentPage);
+        return;
+      }
+
+      if (rawW < 3 || rawH < 3) {
+        redrawAnnotations(currentPage);
+        return;
+      }
+
+      if (currentMode === 'whiteout') {
+        pageAnnotations[currentPage].push({
+          type: 'whiteout',
+          x: rawX / scale, y: rawY / scale, w: rawW / scale, h: rawH / scale,
+          pageHeight
+        });
+        redrawAnnotations(currentPage);
+        renderDragOverlay(currentPage);
+      } else if (currentMode === 'cropExcel') {
+        redrawAnnotations(currentPage);
+        exportRegionToExcel(currentPage, rawX, rawY, rawW, rawH);
+      }
+    });
+
+    // Edit / Add Text Modal Logic
+    const editModal = document.getElementById('editModal');
+    function openEditModal(item, existingEdit) {
+      activeEditItem = item;
+      activeExistingAnn = existingEdit || null;
+      activeAddCoords = null;
+
+      document.getElementById('editModalTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-blue-600"></i> Edit PDF Text';
+      document.getElementById('origPreviewBox').classList.remove('hidden');
+      document.getElementById('originalTextPreview').textContent = item.str;
+      document.getElementById('newTextInput').value = existingEdit ? existingEdit.newText : item.str;
+      document.getElementById('fontSizeInput').value = existingEdit ? existingEdit.fontSize : Math.max(item.fontSize, 8);
+
+      const itemCenter = item.pdfX + item.pdfW / 2;
+      const isCenteredOnPage = Math.abs(itemCenter - item.pageWidth / 2) < 25;
+      document.getElementById('textAlignInput').value = existingEdit
+        ? (existingEdit.align || 'left')
+        : (isCenteredOnPage ? 'center' : 'left');
+
+      document.getElementById('deleteTextBtn').classList.remove('hidden');
+      editModal.classList.remove('hidden');
+      editModal.classList.add('flex');
+      document.getElementById('newTextInput').focus();
+    }
+
+    function openAddTextModal(anchorX, pdfY, pageHeight, existingAddAnn) {
+      activeEditItem = null;
+      activeExistingAnn = existingAddAnn || null;
+      activeAddCoords = { anchorX, pdfY, pageHeight };
+
+      document.getElementById('editModalTitle').innerHTML = existingAddAnn
+        ? '<i class="fa-solid fa-font text-indigo-600"></i> Edit Added Text'
+        : '<i class="fa-solid fa-font text-indigo-600"></i> Add New Text';
+      document.getElementById('origPreviewBox').classList.add('hidden');
+      document.getElementById('newTextInput').value = existingAddAnn ? existingAddAnn.newText : '';
+      document.getElementById('fontSizeInput').value = existingAddAnn ? existingAddAnn.fontSize : 11;
+      document.getElementById('textAlignInput').value = existingAddAnn ? (existingAddAnn.align || 'left') : 'left';
+      document.getElementById('deleteTextBtn').classList.toggle('hidden', !existingAddAnn);
+
+      editModal.classList.remove('hidden');
+      editModal.classList.add('flex');
+      document.getElementById('newTextInput').focus();
+    }
+
+    document.getElementById('closeModalBtn').addEventListener('click', () => {
+      editModal.classList.add('hidden');
+      editModal.classList.remove('flex');
+    });
+
+    document.getElementById('saveTextEditBtn').addEventListener('click', () => {
+      const newText = document.getElementById('newTextInput').value;
+      const fontSize = parseFloat(document.getElementById('fontSizeInput').value) || 10;
+      const align = document.getElementById('textAlignInput').value;
+      const rgb = document.getElementById('textColorInput').value.split(',').map(Number);
+
+      if (!pageAnnotations[currentPage]) pageAnnotations[currentPage] = [];
+
+      if (activeEditItem) {
+        pageAnnotations[currentPage] = pageAnnotations[currentPage].filter(
+          a => !(a.type === 'textEdit' && a.itemId === activeEditItem.id)
+        );
+        pageAnnotations[currentPage].push({
+          type: 'textEdit',
+          itemId: activeEditItem.id,
+          newText,
+          fontSize,
+          align,
+          rgb,
+          origPdfX: activeEditItem.pdfX,
+          origPdfY: activeEditItem.pdfY,
+          origPdfW: activeEditItem.pdfW,
+          origPdfH: activeEditItem.pdfH,
+          pdfY: activeExistingAnn ? activeExistingAnn.pdfY : activeEditItem.pdfY,
+          customPdfX: undefined,
+          pageHeight: activeEditItem.pageHeight
+        });
+        renderTextOverlay(currentPage);
+      } else if (activeAddCoords) {
+        if (activeExistingAnn) {
+          pageAnnotations[currentPage] = pageAnnotations[currentPage].filter(a => a !== activeExistingAnn);
+        }
+        if (newText.trim() !== '') {
+          pageAnnotations[currentPage].push({
+            type: 'addText',
+            newText,
+            fontSize,
+            align,
+            rgb,
+            anchorX: activeAddCoords.anchorX,
+            pdfY: activeAddCoords.pdfY,
+            customPdfX: undefined,
+            pageHeight: activeAddCoords.pageHeight
+          });
+        }
+      }
+
+      delete previewMatrices[currentPage];
+      redrawAnnotations(currentPage);
+      renderDragOverlay(currentPage);
+      editModal.classList.add('hidden');
+      editModal.classList.remove('flex');
+    });
+
+    document.getElementById('deleteTextBtn').addEventListener('click', () => {
+      if (!pageAnnotations[currentPage]) pageAnnotations[currentPage] = [];
+      if (activeEditItem) {
+        pageAnnotations[currentPage] = pageAnnotations[currentPage].filter(
+          a => !(a.type === 'textEdit' && a.itemId === activeEditItem.id)
+        );
+        pageAnnotations[currentPage].push({
+          type: 'textEdit',
+          itemId: activeEditItem.id,
+          newText: '',
+          fontSize: activeEditItem.fontSize,
+          align: 'left',
+          rgb: [0, 0, 0],
+          origPdfX: activeEditItem.pdfX,
+          origPdfY: activeEditItem.pdfY,
+          origPdfW: activeEditItem.pdfW,
+          origPdfH: activeEditItem.pdfH,
+          pdfY: activeEditItem.pdfY,
+          pageHeight: activeEditItem.pageHeight
+        });
+        renderTextOverlay(currentPage);
+      } else if (activeExistingAnn) {
+        pageAnnotations[currentPage] = pageAnnotations[currentPage].filter(a => a !== activeExistingAnn);
+      }
+      delete previewMatrices[currentPage];
+      redrawAnnotations(currentPage);
+      renderDragOverlay(currentPage);
+      editModal.classList.add('hidden');
+      editModal.classList.remove('flex');
+    });
+
+    document.getElementById('undoBtn').addEventListener('click', () => {
+      if (pageAnnotations[currentPage] && pageAnnotations[currentPage].length > 0) {
+        pageAnnotations[currentPage].pop();
+        delete previewMatrices[currentPage];
+        renderTextOverlay(currentPage);
+        renderDragOverlay(currentPage);
+        redrawAnnotations(currentPage);
+        if (activeWorkspaceView === 'excelPreview') renderExcelPreviewPage(currentPage);
+        showToast('Last action undone on current page.');
+      }
+    });
+
+    document.getElementById('zoomIn').addEventListener('click', () => {
+      if (scale < 2.5) {
+        scale = +(scale + 0.15).toFixed(2);
+        document.getElementById('zoomLabel').textContent = `${Math.round(scale * 100)}%`;
+        renderPage(currentPage);
+      }
+    });
+
+    document.getElementById('zoomOut').addEventListener('click', () => {
+      if (scale > 0.6) {
+        scale = +(scale - 0.15).toFixed(2);
+        document.getElementById('zoomLabel').textContent = `${Math.round(scale * 100)}%`;
+        renderPage(currentPage);
+      }
+    });
+
+    document.getElementById('prevPageBtn').addEventListener('click', () => {
+      if (currentPage > 1) { currentPage--; renderPage(currentPage); }
+    });
+
+    document.getElementById('nextPageBtn').addEventListener('click', () => {
+      if (currentPage < totalPages) { currentPage++; renderPage(currentPage); }
+    });
+
+    document.getElementById('currentPageIncludeChk').addEventListener('change', (e) => {
+      if (e.target.checked) selectedPages.add(currentPage);
+      else selectedPages.delete(currentPage);
+      updateSelectedCount();
+    });
+
+    document.getElementById('applyRangeBtn').addEventListener('click', () => {
+      const input = document.getElementById('pageRangeInput').value.trim();
+      if (!input) return;
+
+      const newSet = new Set();
+      const parts = input.split(/[,，\s]+/);
+      parts.forEach(part => {
+        if (part.includes('-')) {
+          const [start, end] = part.split('-').map(Number);
+          if (!isNaN(start) && !isNaN(end)) {
+            for (let p = Math.max(1, start); p <= Math.min(totalPages, end); p++) {
+              newSet.add(p);
+            }
+          }
+        } else {
+          const p = Number(part);
+          if (!isNaN(p) && p >= 1 && p <= totalPages) {
+            newSet.add(p);
+          }
+        }
+      });
+
+      if (newSet.size > 0) {
+        selectedPages = newSet;
+        updateSelectedCount();
+        currentPage = Math.min(...Array.from(selectedPages));
+        if (activeWorkspaceView === 'pdf') renderPage(currentPage);
+        else renderExcelPreviewPage(currentPage);
+        showToast(`Selected ${newSet.size} page(s) for export.`);
+      } else {
+        alert('Invalid page range format. Example: 1, 2-5, 8');
+      }
+    });
+
+    document.getElementById('selectAllBtn').addEventListener('click', () => {
+      selectedPages = new Set(Array.from({ length: totalPages }, (_, i) => i + 1));
+      updateSelectedCount();
+      if (activeWorkspaceView === 'excelPreview') renderPreviewPageTabs();
+    });
+
+    document.getElementById('deselectAllBtn').addEventListener('click', () => {
+      selectedPages.clear();
+      updateSelectedCount();
+      if (activeWorkspaceView === 'excelPreview') renderPreviewPageTabs();
+    });
+
+    document.getElementById('selectOddBtn').addEventListener('click', () => {
+      selectedPages = new Set(Array.from({ length: totalPages }, (_, i) => i + 1).filter(p => p % 2 === 1));
+      updateSelectedCount();
+      if (activeWorkspaceView === 'excelPreview') renderPreviewPageTabs();
+    });
+
+    // =========================================================================
+    // 2D SPATIAL MATRIX BUILDER (Shared by Excel Preview & Excel File Export)
+    // =========================================================================
+    function getEffectivePageItems(pageNum) {
+      const baseItems = pageTextItems[pageNum] || [];
+      const anns = pageAnnotations[pageNum] || [];
+      const result = [];
+
+      baseItems.forEach(item => {
+        const edit = anns.find(a => a.type === 'textEdit' && a.itemId === item.id);
+        if (edit) {
+          if (edit.newText.trim() !== '') {
+            const drawX = edit.customPdfX !== undefined ? edit.customPdfX : getAlignedPdfX(edit);
+            result.push({
+              ...item,
+              str: edit.newText,
+              x: drawX * scale,
+              y: (edit.pageHeight - edit.pdfY - edit.fontSize * 0.88) * scale,
+              width: measurePdfTextWidth(edit.newText, edit.fontSize) * scale
+            });
+          }
+        } else {
+          result.push(item);
+        }
+      });
+
+      anns.filter(a => a.type === 'addText' && a.newText.trim() !== '').forEach(add => {
+        const drawX = add.customPdfX !== undefined ? add.customPdfX : getAlignedPdfX(add);
+        result.push({
+          str: add.newText,
+          x: drawX * scale,
+          y: (add.pageHeight - add.pdfY - add.fontSize * 0.88) * scale,
+          width: measurePdfTextWidth(add.newText, add.fontSize) * scale,
+          height: add.fontSize * scale
+        });
+      });
+
+      return result;
+    }
+
+    function buildSpatialMatrix(items) {
+      if (!items || items.length === 0) return { aoa: [['']], colCount: 1 };
+
+      const xAnchors = [];
+      const sortedByX = [...items].sort((a, b) => a.x - b.x);
+      const colTolerance = 18 * scale;
+
+      sortedByX.forEach(item => {
+        const existing = xAnchors.find(anchor => Math.abs(anchor.x - item.x) <= colTolerance);
+        if (existing) {
+          existing.count++;
+          existing.x = (existing.x * (existing.count - 1) + item.x) / existing.count;
+        } else {
+          xAnchors.push({ x: item.x, count: 1 });
+        }
+      });
+      xAnchors.sort((a, b) => a.x - b.x);
+
+      const sortedByY = [...items].sort((a, b) => a.y - b.y);
+      const rowGroups = [];
+      const rowTolerance = 5.5 * scale;
+
+      sortedByY.forEach(item => {
+        const lastRow = rowGroups[rowGroups.length - 1];
+        if (lastRow && Math.abs(item.y - lastRow.avgY) <= rowTolerance) {
+          lastRow.items.push(item);
+          lastRow.avgY = lastRow.items.reduce((sum, i) => sum + i.y, 0) / lastRow.items.length;
+        } else {
+          rowGroups.push({ avgY: item.y, items: [item] });
+        }
+      });
+
+      const aoa = [];
+      let prevY = null;
+
+      rowGroups.forEach(row => {
+        if (prevY !== null && (row.avgY - prevY) > 22 * scale) {
+          aoa.push(new Array(xAnchors.length).fill(''));
+        }
+        prevY = row.avgY;
+
+        const gridRow = new Array(xAnchors.length).fill('');
+        row.items.sort((a, b) => a.x - b.x);
+
+        row.items.forEach(item => {
+          let bestCol = 0;
+          let minDist = Infinity;
+          xAnchors.forEach((anchor, cIdx) => {
+            const dist = Math.abs(item.x - anchor.x);
+            if (dist < minDist) {
+              minDist = dist;
+              bestCol = cIdx;
+            }
+          });
+
+          const cleanStr = item.str.trim();
+          if (gridRow[bestCol]) {
+            gridRow[bestCol] += ' ' + cleanStr;
+          } else {
+            gridRow[bestCol] = cleanStr;
+          }
+        });
+
+        aoa.push(gridRow);
+      });
+
+      return { aoa, colCount: xAnchors.length };
+    }
+
+    function getExcelColLetter(colIndex) {
+      let temp, letter = '';
+      while (colIndex >= 0) {
+        temp = colIndex % 26;
+        letter = String.fromCharCode(temp + 65) + letter;
+        colIndex = Math.floor(colIndex / 26) - 1;
+      }
+      return letter;
+    }
+
+    // =========================================================================
+    // EXCEL GRID PREVIEW & INTERACTIVE SELECTION / COPY ENGINE
+    // =========================================================================
+    function renderPreviewPageTabs() {
+      const tabContainer = document.getElementById('previewPageTabs');
+      tabContainer.innerHTML = '';
+      for (let i = 1; i <= totalPages; i++) {
+        const btn = document.createElement('button');
+        const isActive = i === currentPage;
+        const isIncluded = selectedPages.has(i);
+        btn.className = `px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition mono-font ${
+          isActive
+            ? 'bg-blue-600 text-white shadow-sm'
+            : isIncluded
+              ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
+              : 'bg-slate-100 text-slate-400 line-through border border-slate-200'
+        }`;
+        btn.textContent = `Page ${i}`;
+        btn.addEventListener('click', () => {
+          currentPage = i;
+          renderExcelPreviewPage(currentPage);
+        });
+        tabContainer.appendChild(btn);
+      }
+    }
+
+    async function renderExcelPreviewPage(pageNum) {
+      highlightActiveThumbnail(pageNum);
+      renderPreviewPageTabs();
+      selectedCellCoords.clear();
+      updateSelectionStatus();
+
+      if (!pageTextItems[pageNum]) {
+        pageTextItems[pageNum] = await parsePageTextItems(pageNum, scale);
+      }
+
+      if (!previewMatrices[pageNum]) {
+        const effectiveItems = getEffectivePageItems(pageNum);
+        const { aoa } = buildSpatialMatrix(effectiveItems);
+        previewMatrices[pageNum] = aoa;
+      }
+
+      const matrix = previewMatrices[pageNum];
+      const maxCols = Math.max(1, ...matrix.map(r => r.length));
+      const container = document.getElementById('excelGridContainer');
+
+      const table = document.createElement('table');
+      table.className = 'excel-grid-table w-full';
+
+      // Header Row (A, B, C...)
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      const cornerTh = document.createElement('th');
+      cornerTh.textContent = '◢';
+      cornerTh.title = 'Select all cells';
+      cornerTh.addEventListener('click', () => selectAllCellsInMatrix(matrix, maxCols));
+      headRow.appendChild(cornerTh);
+
+      for (let c = 0; c < maxCols; c++) {
+        const th = document.createElement('th');
+        th.textContent = getExcelColLetter(c);
+        th.title = `Select entire column ${getExcelColLetter(c)}`;
+        th.addEventListener('click', () => selectEntireCol(matrix, c));
+        headRow.appendChild(th);
+      }
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      // Data Rows
+      const tbody = document.createElement('tbody');
+      matrix.forEach((row, rIdx) => {
+        const tr = document.createElement('tr');
+
+        const rowHeader = document.createElement('td');
+        rowHeader.className = 'row-header mono-font';
+        rowHeader.textContent = rIdx + 1;
+        rowHeader.title = `Select entire row ${rIdx + 1}`;
+        rowHeader.addEventListener('click', () => selectEntireRow(rIdx, maxCols));
+        tr.appendChild(rowHeader);
+
+        for (let cIdx = 0; cIdx < maxCols; cIdx++) {
+          const td = document.createElement('td');
+          td.className = 'grid-cell';
+          td.dataset.r = rIdx;
+          td.dataset.c = cIdx;
+          td.textContent = row[cIdx] || '';
+
+          td.addEventListener('mousedown', (e) => {
+            if (td.isContentEditable) return;
+            isSelectingCells = true;
+            selStartCell = { r: rIdx, c: cIdx };
+            if (!e.ctrlKey && !e.metaKey) {
+              selectedCellCoords.clear();
+            }
+            toggleCellSelection(rIdx, cIdx, true);
+            refreshCellSelectionVisuals();
+          });
+
+          td.addEventListener('mouseenter', () => {
+            if (!isSelectingCells || !selStartCell) return;
+            selectedCellCoords.clear();
+            const rMin = Math.min(selStartCell.r, rIdx);
+            const rMax = Math.max(selStartCell.r, rIdx);
+            const cMin = Math.min(selStartCell.c, cIdx);
+            const cMax = Math.max(selStartCell.c, cIdx);
+            for (let r = rMin; r <= rMax; r++) {
+              for (let c = cMin; c <= cMax; c++) {
+                selectedCellCoords.add(`${r},${c}`);
+              }
+            }
+            refreshCellSelectionVisuals();
+          });
+
+          td.addEventListener('dblclick', () => {
+            td.contentEditable = true;
+            td.classList.add('bg-amber-50', 'outline', 'outline-2', 'outline-blue-600');
+            td.focus();
+          });
+
+          td.addEventListener('blur', () => {
+            if (td.isContentEditable) {
+              td.contentEditable = false;
+              td.classList.remove('bg-amber-50', 'outline', 'outline-2', 'outline-blue-600');
+              if (!previewMatrices[pageNum][rIdx]) previewMatrices[pageNum][rIdx] = [];
+              previewMatrices[pageNum][rIdx][cIdx] = td.textContent;
+            }
+          });
+
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      container.innerHTML = '';
+      container.appendChild(table);
+    }
+
+    function toggleCellSelection(r, c, forceSelect = null) {
+      const key = `${r},${c}`;
+      if (forceSelect === true) selectedCellCoords.add(key);
+      else if (selectedCellCoords.has(key)) selectedCellCoords.delete(key);
+      else selectedCellCoords.add(key);
+    }
+
+    function selectEntireRow(rIdx, maxCols) {
+      selectedCellCoords.clear();
+      for (let c = 0; c < maxCols; c++) selectedCellCoords.add(`${rIdx},${c}`);
+      refreshCellSelectionVisuals();
+    }
+
+    function selectEntireCol(matrix, cIdx) {
+      selectedCellCoords.clear();
+      for (let r = 0; r < matrix.length; r++) selectedCellCoords.add(`${r},${cIdx}`);
+      refreshCellSelectionVisuals();
+    }
+
+    function selectAllCellsInMatrix(matrix, maxCols) {
+      selectedCellCoords.clear();
+      for (let r = 0; r < matrix.length; r++) {
+        for (let c = 0; c < maxCols; c++) {
+          selectedCellCoords.add(`${r},${c}`);
+        }
+      }
+      refreshCellSelectionVisuals();
+    }
+
+    function refreshCellSelectionVisuals() {
+      document.querySelectorAll('.grid-cell').forEach(td => {
+        const key = `${td.dataset.r},${td.dataset.c}`;
+        td.classList.toggle('cell-selected', selectedCellCoords.has(key));
+      });
+      updateSelectionStatus();
+    }
+
+    function updateSelectionStatus() {
+      document.getElementById('selectionStatusText').textContent =
+        `${selectedCellCoords.size} cell(s) selected (Drag to select, Ctrl+C to copy)`;
+    }
+
+    async function copySelectedCellsToClipboard() {
+      if (selectedCellCoords.size === 0) {
+        showToast('Please select one or more cells in the grid first.');
+        return;
+      }
+
+      const matrix = previewMatrices[currentPage] || [];
+      const coords = Array.from(selectedCellCoords).map(k => {
+        const [r, c] = k.split(',').map(Number);
+        return { r, c };
+      });
+
+      const rMin = Math.min(...coords.map(o => o.r));
+      const rMax = Math.max(...coords.map(o => o.r));
+      const cMin = Math.min(...coords.map(o => o.c));
+      const cMax = Math.max(...coords.map(o => o.c));
+
+      const lines = [];
+      for (let r = rMin; r <= rMax; r++) {
+        const rowVals = [];
+        for (let c = cMin; c <= cMax; c++) {
+          if (selectedCellCoords.has(`${r},${c}`)) {
+            const val = (matrix[r] && matrix[r][c]) ? String(matrix[r][c]).replace(/\r?\n/g, ' ') : '';
+            rowVals.push(val);
+          } else {
+            rowVals.push('');
+          }
+        }
+        lines.push(rowVals.join('\t'));
+      }
+
+      const tsv = lines.join('\n');
+      await navigator.clipboard.writeText(tsv);
+      showToast(`Copied ${selectedCellCoords.size} cell(s) to clipboard! Ready to paste (Ctrl+V) in Excel.`);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (activeWorkspaceView === 'excelPreview' && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        const activeTag = document.activeElement?.tagName;
+        if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA' && !document.activeElement?.isContentEditable) {
+          e.preventDefault();
+          copySelectedCellsToClipboard();
+        }
+      }
+    });
+
+    document.getElementById('copySelectedCellsBtn').addEventListener('click', copySelectedCellsToClipboard);
+
+    document.getElementById('selectAllGridBtn').addEventListener('click', () => {
+      const matrix = previewMatrices[currentPage] || [];
+      const maxCols = Math.max(1, ...matrix.map(r => r.length));
+      selectAllCellsInMatrix(matrix, maxCols);
+    });
+
+    document.getElementById('resetGridBtn').addEventListener('click', () => {
+      delete previewMatrices[currentPage];
+      renderExcelPreviewPage(currentPage);
+      showToast('Grid layout re-synced with latest PDF edits.');
+    });
+
+    // =========================================================================
+    // FILE EXPORTS (PDF & XLSX)
+    // =========================================================================
+    document.getElementById('exportPdfBtn').addEventListener('click', async () => {
+      if (selectedPages.size === 0) {
+        alert('Please select at least 1 page to export.');
+        return;
+      }
+
+      const { PDFDocument, rgb, StandardFonts } = PDFLib;
+      const srcDoc = await PDFDocument.load(rawPdfBytes);
+      const outDoc = await PDFDocument.create();
+      const font = await outDoc.embedFont(StandardFonts.Helvetica);
+
+      const sortedPages = Array.from(selectedPages).sort((a, b) => a - b);
+      const copiedPages = await outDoc.copyPages(srcDoc, sortedPages.map(p => p - 1));
+
+      sortedPages.forEach((origPageNum, idx) => {
+        const pdfPage = copiedPages[idx];
+        const anns = pageAnnotations[origPageNum] || [];
+
+        anns.forEach(ann => {
+          if (ann.type === 'highlight') {
+            const [r, g, b] = ann.rgb;
+            pdfPage.drawRectangle({
+              x: ann.x,
+              y: ann.pageHeight - ann.y - ann.h,
+              width: ann.w,
+              height: ann.h,
+              color: rgb(r, g, b),
+              opacity: 0.4
+            });
+          } else if (ann.type === 'whiteout') {
+            pdfPage.drawRectangle({
+              x: ann.x,
+              y: ann.pageHeight - ann.y - ann.h,
+              width: ann.w,
+              height: ann.h,
+              color: rgb(1, 1, 1)
+            });
+          } else if (ann.type === 'textEdit') {
+            pdfPage.drawRectangle({
+              x: ann.origPdfX - 1,
+              y: ann.origPdfY - ann.origPdfH * 0.25,
+              width: ann.origPdfW + 4,
+              height: ann.origPdfH * 1.25,
+              color: rgb(1, 1, 1)
+            });
+            if (ann.newText.trim() !== '') {
+              const drawX = ann.customPdfX !== undefined ? ann.customPdfX : getAlignedPdfX(ann);
+              const [r, g, b] = ann.rgb;
+              try {
+                pdfPage.drawText(ann.newText, {
+                  x: drawX,
+                  y: ann.pdfY,
+                  size: ann.fontSize,
+                  font,
+                  color: rgb(r, g, b)
+                });
+              } catch (err) {
+                console.warn('Non-ASCII character fallback:', err);
+              }
+            }
+          } else if (ann.type === 'addText') {
+            const drawX = ann.customPdfX !== undefined ? ann.customPdfX : getAlignedPdfX(ann);
+            const [r, g, b] = ann.rgb;
+            try {
+              pdfPage.drawText(ann.newText, {
+                x: drawX,
+                y: ann.pdfY,
+                size: ann.fontSize,
+                font,
+                color: rgb(r, g, b)
+              });
+            } catch (err) {
+              console.warn('Non-ASCII character fallback:', err);
+            }
+          }
+        });
+
+        outDoc.addPage(pdfPage);
+      });
+
+      const pdfBytesOut = await outDoc.save();
+      const suffix = sortedPages.length === totalPages ? 'edited' : `pages_${sortedPages.join('-')}`;
+      downloadBlob(new Blob([pdfBytesOut], { type: 'application/pdf' }), `${originalFileName}_${suffix}.pdf`);
+      showToast(`Exported PDF (${sortedPages.length} page(s)) successfully!`);
+    });
+
+    function matrixToStyledWorksheet(aoa) {
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      const maxCols = Math.max(1, ...aoa.map(r => r.length));
+      const colWidths = new Array(maxCols).fill(8);
+      aoa.forEach(row => {
+        row.forEach((cell, idx) => {
+          const len = String(cell || '').length;
+          colWidths[idx] = Math.min(Math.max(colWidths[idx], len + 3), 48);
+        });
+      });
+      ws['!cols'] = colWidths.map(wch => ({ wch }));
+      return ws;
+    }
+
+    document.getElementById('exportExcelBtn').addEventListener('click', async () => {
+      if (selectedPages.size === 0) {
+        alert('Please select at least 1 page to export.');
+        return;
+      }
+
+      const wb = XLSX.utils.book_new();
+      const sortedPages = Array.from(selectedPages).sort((a, b) => a - b);
+
+      for (const p of sortedPages) {
+        if (!pageTextItems[p]) {
+          pageTextItems[p] = await parsePageTextItems(p, scale);
+        }
+        const aoa = previewMatrices[p] || buildSpatialMatrix(getEffectivePageItems(p)).aoa;
+        const ws = matrixToStyledWorksheet(aoa);
+        XLSX.utils.book_append_sheet(wb, ws, `Page_${p}`);
+      }
+
+      XLSX.writeFile(wb, `${originalFileName}_1to1_layout.xlsx`);
+      showToast(`Exported Excel workbook (${sortedPages.length} sheet(s))!`);
+    });
+
+    function exportRegionToExcel(pageNum, cropX, cropY, cropW, cropH) {
+      const items = getEffectivePageItems(pageNum).filter(item => {
+        const centerX = item.x + item.width / 2;
+        const centerY = item.y + item.height / 2;
+        return centerX >= cropX && centerX <= cropX + cropW &&
+               centerY >= cropY && centerY <= cropY + cropH;
+      });
+
+      if (items.length === 0) {
+        alert('No selectable text found inside the cropped region (it may be a scanned image).');
+        return;
+      }
+
+      const { aoa } = buildSpatialMatrix(items);
+      const ws = matrixToStyledWorksheet(aoa);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, `Page_${pageNum}_Crop`);
+      XLSX.writeFile(wb, `${originalFileName}_P${pageNum}_selection.xlsx`);
+      showToast('Cropped region exported to Excel!');
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
