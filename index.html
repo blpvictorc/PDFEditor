@@ -440,6 +440,7 @@
     // Global State
     let rawPdfBytes = null;
     let pdfDoc = null;
+    let activeRenderTask = null; // Prevents concurrent canvas render collisions
     let cachedCjkFontBytes = null;
     let currentPage = 1;
     let totalPages = 0;
@@ -522,19 +523,18 @@
     async function loadPdfFile(file) {
       originalFileName = file.name.replace(/\.pdf$/i, '');
       const statusBadge = document.getElementById('statusBadge');
-      statusBadge.textContent = 'Loading PDF & CJK Maps...';
+      statusBadge.textContent = 'Loading PDF...';
 
       try {
         const arrayBuffer = await file.arrayBuffer();
         rawPdfBytes = new Uint8Array(arrayBuffer);
 
-        // Enable cMapUrl and standardFontDataUrl so Chinese (GBK/Big5/UTF-16) & Japanese CID fonts render & extract properly
+        // Use cMapUrl + cMapPacked without overriding embedded CJK fonts with useSystemFonts
         const loadingTask = pdfjsLib.getDocument({
           data: rawPdfBytes.slice(),
           cMapUrl: `${PDFJS_CDN}/cmaps/`,
           cMapPacked: true,
-          standardFontDataUrl: `${PDFJS_CDN}/standard_fonts/`,
-          useSystemFonts: true
+          standardFontDataUrl: `${PDFJS_CDN}/standard_fonts/`
         });
 
         pdfDoc = await loadingTask.promise;
@@ -556,9 +556,10 @@
 
         await renderThumbnails();
         updateSelectedCount();
-        switchWorkspaceView('pdf');
-        await renderPage(currentPage);
+        // switchWorkspaceView('pdf') already calls renderPage(currentPage) once cleanly
+        await switchWorkspaceView('pdf');
       } catch (err) {
+        if (err?.name === 'RenderingCancelledException') return;
         console.error('PDF Load Error:', err);
         statusBadge.textContent = 'Failed to Load PDF';
         statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40';
@@ -708,6 +709,15 @@
     }
 
     async function renderPage(pageNum) {
+      // Cancel any in-flight render operation on pdfCanvas before starting a new one
+      if (activeRenderTask) {
+        try {
+          activeRenderTask.cancel();
+          await activeRenderTask.promise.catch(() => {});
+        } catch (e) {}
+        activeRenderTask = null;
+      }
+
       document.getElementById('currentPageNum').textContent = pageNum;
       document.getElementById('currentPageIncludeChk').checked = selectedPages.has(pageNum);
       highlightActiveThumbnail(pageNum);
@@ -726,7 +736,20 @@
       container.style.width = `${viewport.width}px`;
       container.style.height = `${viewport.height}px`;
 
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      const renderTask = page.render({ canvasContext: ctx, viewport });
+      activeRenderTask = renderTask;
+
+      try {
+        await renderTask.promise;
+      } catch (err) {
+        if (err?.name === 'RenderingCancelledException') return;
+        throw err;
+      } finally {
+        if (activeRenderTask === renderTask) {
+          activeRenderTask = null;
+        }
+      }
+
       pageTextItems[pageNum] = await parsePageTextItems(pageNum, scale);
 
       renderTextOverlay(pageNum);
@@ -1993,7 +2016,6 @@
       aoa.forEach(row => {
         row.forEach((cell, idx) => {
           const str = String(cell || '');
-          // Count CJK wide characters as 2 width units for proper Excel column sizing
           const len = Array.from(str).reduce((acc, ch) => acc + (/[^\x00-\x7F]/.test(ch) ? 2 : 1), 0);
           colWidths[idx] = Math.min(Math.max(colWidths[idx], len + 3), 50);
         });
